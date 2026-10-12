@@ -176,6 +176,8 @@ table.method td:first-child{font-weight:700;min-width:120px}
 .kv .v{font-family:var(--f-mono);font-weight:600;font-size:16px;font-variant-numeric:tabular-nums}
 .note{font-size:13px;color:var(--muted);margin:10px 0 0;max-width:78ch}
 .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.conf{margin-top:12px;font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+.conf b{color:var(--ink)}.conf .ck{white-space:nowrap}.conf .ck.ok{color:var(--good)}
 .pill.good{color:var(--good)} .pill.warn{color:var(--warn)} .pill.bad{color:var(--bad)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--muted);margin-bottom:6px}
 .legend span{display:inline-flex;align-items:center;gap:6px}
@@ -338,6 +340,20 @@ footer{margin-top:28px;color:var(--muted);font-size:12.5px;max-width:90ch}
       </div>
 
       <div class="panel">
+        <h3>Already installed</h3>
+        <div class="row2 field" style="margin-top:0">
+          <div class="field" style="margin:0"><label for="exPV">Solar (kWp)</label><input type="number" id="exPV" min="0" step="0.5" placeholder="0"></div>
+          <div class="field" style="margin:0"><label for="exB">Battery (kWh)</label><input type="number" id="exB" min="0" step="1" placeholder="0"></div>
+        </div>
+        <span class="hint" id="exHint">Leave empty if nothing is installed. Whatever is there becomes "today", so savings count only what you add.</span>
+        <div class="field"><span class="lbl">New panels</span>
+          <div class="seg" data-key="planPV"><button data-v="opt">Find the best number</button><button data-v="keep">None, keep what's there</button></div></div>
+        <div class="field"><span class="lbl">New battery</span>
+          <div class="seg" data-key="planB"><button data-v="opt">Find the best size</button><button data-v="none">No battery</button><button data-v="fixed">A set size</button></div></div>
+        <div class="field" id="fixBField"><label for="fixB">Battery size to price (kWh)</label><input type="number" id="fixB" min="0" step="2.5"></div>
+      </div>
+
+      <div class="panel">
         <h3>Prices</h3>
         <div class="field"><span class="lbl">Electricity price</span>
           <div class="seg" data-key="priceMode"><button data-v="auto">Local tariff</button><button data-v="flat">One price</button><button data-v="tiers">Steps (progressive)</button><button data-v="tou">By time of day</button></div>
@@ -409,6 +425,7 @@ footer{margin-top:28px;color:var(--muted);font-size:12.5px;max-width:90ch}
       <section class="card" id="sec-verdict">
         <div class="sechead"><h2 id="verdictH">Is solar worth it for this house?</h2><span class="tag sun" id="verdictTag"></span><button class="btn small" id="openSheet" type="button" style="margin-left:auto">Summary for the owner</button></div>
         <div class="vgrid" id="vgrid"></div>
+        <div class="conf" id="conf"></div>
         <ul class="verdict" id="verdict"></ul>
       </section>
 
@@ -515,11 +532,18 @@ footer{margin-top:28px;color:var(--muted);font-size:12.5px;max-width:90ch}
           </div>
           <div>
             <h3>Backup during an outage</h3>
+            <div class="field"><span class="lbl">During a power cut</span>
+              <div class="seg" data-key="backup"><button data-v="none">No backup</button><button data-v="ess">Essentials</button><button data-v="whole">Whole building</button></div></div>
             <div class="field"><label for="ess">Essential load <output id="essOut"></output></label><input type="range" id="ess" min="0.3" max="3" step="0.1">
               <span class="hint">Fridge, lights, Wi-Fi, a few outlets ≈ 0.5–1 kW on average.</span></div>
             <div class="field"><label for="hours">Hours you want covered <output id="hoursOut"></output></label><input type="range" id="hours" min="2" max="48"></div>
             <div class="minis" id="backupMinis"></div>
           </div>
+        </div>
+        <h3 style="margin-top:20px">Inverter <span class="hint" style="text-transform:none;letter-spacing:0;font-weight:400" id="invSub"></span></h3>
+        <div class="grid2">
+          <table class="receipt" id="invReceipt"></table>
+          <p class="note" id="invNote" style="margin-top:0"></p>
         </div>
       </section>
 
@@ -796,7 +820,7 @@ function model(p){
   const waterM3=hotel?occ*0.2:p.occ*0.15,headM=p.stories*3.2+5,pumpDay=(hotel||p.stories>=3)?waterM3*headM*9.81/3600/0.45:0;
   const LT=LIFT[p.liftType]||LIFT.std,lifts=Math.max(0,Math.round(+p.lifts||0)),liftKg=hotel?630:320,trips=lifts?(hotel?gN*occR*6+40:p.occ*6)/lifts:0;
   const liftTravel=Math.max(0,(p.stories-1)*3.2)*0.5,liftRun=lifts*trips*LT.e*liftKg*liftTravel/1e6,liftSb=lifts*LT.sb*24/1000;
-  const extra={hotelPlug,commonDay,whDay,laundryDay,waterM3,headM,pumpDay,lifts,liftKg,trips,liftTravel,liftRun,liftSb,LT,gN,occR,staff,gArea,cArea,corr,coolF};
+  const extra={hotelPlug,commonDay,whDay,laundryDay,waterM3,headM,pumpDay,lifts,liftKg,trips,liftTravel,liftRun,liftSb,LT,gN,occR,staff,gArea,cArea,corr,coolF,gs,cs};
   const warm=cl.T.map(t=>Math.max(0,t-55)),wsum=sum(warm)||1;
   const whYr=hotel?whDay*365:p.water==="gas"?0:(600+550*occ)/(p.water==="hpwh"?3:1);
   const cdd=[],hdd=[];
@@ -849,16 +873,21 @@ function model(p){
       return I.map((v,h)=>{const tc=(Th[h]-32)/1.8+0.03*v;return p.panelW/1000*v/1000*der*(1-0.0035*Math.max(0,tc-25))})});
     f.yield=sum(f.pp.map((d,m)=>sum(d)*DAYS[m]))});
   const order=[...g.faces].filter(f=>f.cap>0).sort((a,b)=>b.yield-a.yield);
-  const maxP=Math.min(200,sum(order.map(f=>f.cap)));
-  return {st,lat,latR,cl,g,ins,UAc,UAh,comp,btu,need,unit,systems,peakHour:ph,Td,rooms,heatDesign,capAt,cop,
+  const roofCap=sum(order.map(f=>f.cap)),exN=Math.min(roofCap,Math.max(0,Math.round((+p.exPV||0)*1000/p.panelW))),exB=Math.max(0,+p.exB||0);
+  const maxP=p.planPV==="keep"?0:Math.min(200,roofCap-exN);
+  const Mo={st,lat,latR,cl,g,ins,UAc,UAh,comp,btu,need,unit,systems,peakHour:ph,Td,rooms,heatDesign,capAt,cop,
     L,total,annual,price,modelled,scale,order,maxP,cdd,hdd,RD,appRows,der,whYr,baseYr,costW,costB,metering,exportRate,exportCap,TF,flat,useM,baseBills,billOf,
-    hotel,occ,extra,TOU:TOUc,hp,gridCharge:hp?p.gridCharge!==false:false,BATTS,bMax,bStep}}
-function allocate(M,n){const a=new Map();let left=n;for(const f of M.order){const k=Math.min(left,f.cap);a.set(f,k);left-=k}return a}
+    hotel,occ,extra,TOU:TOUc,hp,gridCharge:hp?p.gridCharge!==false:false,BATTS,bMax,bStep,exN,exB,roofCap};
+  // "today": the bill with whatever is already installed (no solar → the plain bill)
+  const d0=dispatch(Mo,pvHourly(Mo,0),0,p.reserve,false),c0=costParts(Mo,d0);Mo.nowCost=c0.cost;Mo.nowM=c0.months;Mo.nowD=d0;
+  Mo.peakKW=peakLoad(Mo,p);return Mo}
+// existing panels sit on the best roof faces first; n = new panels on top of them
+function allocate(M,n){const a=new Map();let left=n+(M.exN||0);for(const f of M.order){const k=Math.min(left,f.cap);a.set(f,k);left-=k}return a}
 function pvHourly(M,n){const a=allocate(M,n);return MON.map((_,m)=>Array.from({length:24},(_,h)=>{let s=0;a.forEach((k,f)=>s+=k*f.pp[m][h]);return s}))}
 function battPower(cap){return cap>0?Math.max(3.8,cap*0.5):0}
 // steady-state daily dispatch: solar → home → battery → export; battery → home; grid last
 function dispatch(M,P,cap,reserve,detail){
-  const pm=battPower(cap),res=cap*reserve/100,hp=M.hp;let imp=0,exp=0;const impM=[],expM=[],prodM=[],costM=[],chgM=[];
+  cap=cap+(M.exB||0);const pm=battPower(cap),res=cap*reserve/100,hp=M.hp;let imp=0,exp=0;const impM=[],expM=[],prodM=[],costM=[],chgM=[];
   const D=detail?{direct:[],batt:[],grid:[],charge:[],exp:[],soc:[],prod:[]}:null;
   const mo=detail?{direct:[],batt:[],grid:[],exp:[],prod:[]}:null;
   for(let m=0;m<12;m++){const Lm=M.total[m],Pm=P[m];let soc=res,md=0,mb=0,mg=0,me=0,mc=0,gc=0;prodM.push(sum(Pm)*DAYS[m]);
@@ -881,28 +910,52 @@ function dispatch(M,P,cap,reserve,detail){
   return {imp,exp,impM,expM,prodM,costM,chgM,D,mo}}
 // what the bought power costs (time-of-day, stepped or flat)
 function impCost(M,d){return M.hp?sum(d.costM):sum(d.impM.map(M.billOf))}
+// yearly and monthly bill for a dispatch result: what is bought minus what exports earn
+function costParts(M,d){
+  const er=M.exportRate,capF=M.exportCap/100,months=[];let paid=0;
+  if(M.hp||M.metering!=="net"){const cf=M.metering==="net"?1:capF;
+    for(let m=0;m<12;m++){const pd=Math.min(d.expM[m],cf*d.prodM[m]);paid+=pd;months.push((M.hp?d.costM[m]:M.billOf(d.impM[m]))-pd*er)}}
+  else if(M.TF){let bank=0;paid=Math.min(d.exp,d.imp);for(let m=0;m<12;m++){const x=d.impM[m]-d.expM[m]-bank;if(x>=0){months.push(M.billOf(x));bank=0}else{bank=-x;months.push(0)}}months[11]-=bank*er}
+  else{paid=Math.min(d.exp,d.imp);for(let m=0;m<12;m++)months.push((d.impM[m]-d.expM[m])*M.flat);const net=d.imp-d.exp;if(net<0)months[11]+=-net*(M.flat-er)}
+  return {cost:sum(months),months,paid}}
 function econ(M,p,n,cap,d){
-  const er=M.exportRate,capF=M.exportCap/100;let cost,paid=0;
-  if(M.hp){for(let m=0;m<12;m++)paid+=Math.min(d.expM[m],(M.metering==="net"?1:capF)*d.prodM[m]);cost=sum(d.costM)-paid*er}
-  else if(M.metering==="net"){const net=d.imp-d.exp;paid=Math.min(d.exp,d.imp);
-    if(M.TF){let bank=0;cost=0;for(let m=0;m<12;m++){const x=d.impM[m]-d.expM[m]-bank;if(x>=0){cost+=M.billOf(x);bank=0}else bank=-x}cost-=bank*er}
-    else cost=net>=0?net*M.flat:net*er}
-  else{for(let m=0;m<12;m++)paid+=Math.min(d.expM[m],capF*d.prodM[m]);cost=sum(d.impM.map(M.billOf))-paid*er}
-  const base=sum(M.baseBills),save=base-cost,kW=n*p.panelW/1000;
+  const {cost,paid}=costParts(M,d);
+  const base=M.nowCost!=null?M.nowCost:sum(M.baseBills),save=base-cost,kW=n*p.panelW/1000;
   const g=(1+p.esc/100)*(1-p.deg/100),r=1+p.disc/100;let F=0;for(let y=0;y<25;y++)F+=g**y/r**(y+1);
   const capex=(kW*1000*M.costW+cap*M.costB)*(1-p.incent/100),repl=cap*M.costB*0.5*(1-p.incent/100);
   const npv=save*F-capex-repl/r**15;
   let cum=0,pay=null;for(let y=0;y<25;y++){const prev=cum;cum+=save*g**y-(y===15?repl:0);if(pay===null&&capex>0&&cum>=capex)pay=y+(capex-prev)/Math.max(1e-9,cum-prev)}
   return {cost,base,save,capex,npv,payback:pay,lifetime:cum-capex,kW,paid,curtailed:M.metering==="net"?0:d.exp-paid}}
 function optimise(M,p){
-  const BATTS=M.BATTS;let best={npv:0,panels:0,batt:0};const curves={};BATTS.forEach(b=>curves[b]=[]);
-  const P=MON.map(()=>new Array(24).fill(0));let fi=0,used=0;
+  // respect what the user locked: no new panels, no battery, or a fixed battery size
+  const BATTS=p.planB==="none"?[0]:p.planB==="fixed"?[Math.max(0,+p.fixB||0)]:M.BATTS;let best={npv:-1e12,panels:0,batt:BATTS[0]};const curves={};BATTS.forEach(b=>curves[b]=[]);
+  const P=pvHourly(M,0);let fi=0,used=0;for(let k=0;k<(M.exN||0);k++){while(fi<M.order.length&&used>=M.order[fi].cap){fi++;used=0}used++}
   for(let n=0;n<=M.maxP;n++){
     if(n>0){while(fi<M.order.length&&used>=M.order[fi].cap){fi++;used=0}const f=M.order[fi];used++;
       for(let m=0;m<12;m++)for(let h=0;h<24;h++)P[m][h]+=f.pp[m][h]}
     for(const b of BATTS){const d=dispatch(M,P,b,p.reserve,false),e=econ(M,p,n,b,d);curves[b].push(e.npv);
       if(e.npv>best.npv+1)best={npv:e.npv,panels:n,batt:b}}}
-  return {best,curves}}
+  if(p.planB!=="fixed"&&best.npv<0)best={npv:0,panels:0,batt:0};
+  return {best,curves,bList:BATTS}}
+// biggest load likely at the same moment (kW): what the inverter and a whole-house backup must carry
+function peakLoad(M,p){
+  if(M.appRows&&M.appRows.length){let mx=0;for(let h=0;h<24;h++){let s=0;M.appRows.forEach(a=>{if(a.w24[h]>0)s+=(+a.q||0)*(+a.w||0)/1000*(["cool","heat"].includes(a.kind)?1:a.kind==="water"?0.6:0.8)});mx=Math.max(mx,s)}return mx}
+  const X=M.extra,ac=M.unit*M.systems*12000/(p.seer*0.78*1000)*(M.hotel?(X.cs+X.gs*X.occR)/(X.cs+X.gs||1):1);
+  const wh=p.water==="gas"?0:M.hotel?X.gN*X.occR*2.5*0.25:p.water==="hpwh"?0.8:2.5,cook=M.hotel?0:1.8,base=M.hotel?X.commonDay/14+X.gN*0.15:1;
+  const lift=X.lifts*(M.hotel?7.5:3.7)*0.5,ev=p.ev&&p.loadMode!=="real"?7:0,laundry=X.laundryDay?3:0;
+  const hourly=Math.max(...M.total.map(d=>Math.max(...d)));
+  return Math.max(hourly*1.3,ac*0.9+wh+cook+base+lift+ev*0.5+laundry)}
+const INV_SIZES=[3,3.6,5,6,8,10,12,15,20,25,30,40,50,60,80,100,125,150];
+// inverter for the new equipment: carries the new panels, the battery's charge/discharge and (if wanted) backup loads
+function inverterFor(M,p,newN,newB){
+  const pv=newN*p.panelW/1000,tb=newB+(M.exB||0),need=[];
+  if(pv>0)need.push(["New panels",pv/1.2,`${fmt(pv,1)} kWp ÷ 1.2 (panels rarely reach their label, so the inverter can be a bit smaller)`]);
+  if(newB>0)need.push(["Battery charge/discharge",battPower(tb),`about half the battery's ${fmt(tb,1)} kWh per hour`]);
+  if(p.backup==="ess"&&tb>0)need.push(["Backup: essentials",Math.max(3,p.ess*2),`${fmt(p.ess,1)} kW average × 2 for fridge and pump start-up`]);
+  if(p.backup==="whole"&&tb>0)need.push(["Backup: whole building",M.peakKW*1.25,`peak ≈ ${fmt(M.peakKW,1)} kW running at once × 1.25`]);
+  const req=Math.max(0,...need.map(x=>x[1])),kw=req?INV_SIZES.find(x=>x>=req*0.97)||Math.ceil(req/10)*10:0;
+  const hybrid=tb>0,three=kw>10||M.peakKW>12,battShort=p.backup==="whole"&&tb>0&&battPower(tb)<M.peakKW;
+  return {kw,req,need,hybrid,three,battShort,pv}}
 function nightBatt(M,P,reserve){
   const night=MON.map((_,m)=>{let s=0;for(let h=0;h<24;h++)s+=Math.max(0,M.total[m][h]-P[m][h]);return s});
   const extra=MON.map((_,m)=>{let s=0;for(let h=0;h<24;h++)s+=Math.max(0,P[m][h]-M.total[m][h]);return s});
@@ -947,7 +1000,7 @@ function isMetric(){return S.units==="metric"||(S.units==="auto"&&!US_STATES.has
 
 // ---------- state ----------
 const DEF={cityLabel:"Austin, TX",coord:null,front:180,roof:"gable",pitch:23,roofColor:"medium",stories:1,aspect:1.5,ceil:"9",windows:"avg",insul:"avg",shade:"some",
-  units:"auto",money:"local",loadMode:"est",bldg:"home",lifts:0,liftType:"std",hOcc:65,laundry:true,roofUse:100,tou:null,gridCharge:true,apps:null,rooms:[{type:"living",name:"Living room",area:320,facade:"front"},{type:"kitchen",name:"Kitchen",area:180,facade:"back"},{type:"dining",name:"Dining room",area:140,facade:"back"},
+  units:"auto",money:"local",loadMode:"est",exPV:"",exB:"",planPV:"opt",planB:"opt",fixB:10,backup:"ess",bldg:"home",lifts:0,liftType:"std",hOcc:65,laundry:true,roofUse:100,tou:null,gridCharge:true,apps:null,rooms:[{type:"living",name:"Living room",area:320,facade:"front"},{type:"kitchen",name:"Kitchen",area:180,facade:"back"},{type:"dining",name:"Dining room",area:140,facade:"back"},
     {type:"bedroom",name:"Primary bedroom",area:200,facade:"s2"},{type:"bedroom",name:"Bedroom 2",area:130,facade:"s1"},{type:"bedroom",name:"Bedroom 3",area:130,facade:"front"},{type:"office",name:"Office",area:110,facade:"s1"}],
   halls:20,occ:4,setpoint:76,system:"central",seer:15.2,heat:"hp",water:"elec",ev:0,evTime:"night",pool:false,billKwh:"",price:"",
   metering:"auto",exportRate:"",exportCap:"",priceMode:"auto",tiers:null,panelW:430,costW:"",costB:"",incent:0,reserve:10,esc:3,disc:5,loss:14,deg:0.5,ess:0.8,hours:12,month:6,hour:14};
@@ -1234,9 +1287,10 @@ function fullUpdate(){
   S.unit=isMetric()?"m":"ft";
   M=model({...S});setMoney();OPT=optimise(M,S);
   // the chosen plan is recalculated on every change: best value, 100% of use, or the sizes set by hand
-  if(S.pick==="full"){const n=clamp(fullCount(M).full,0,M.maxP);S.panels=n;S.batt=nightBatt(M,pvHourly(M,n),S.reserve).size}
+  if(S.pick==="full"){const n=clamp(fullCount(M).full-M.exN,0,M.maxP);S.panels=n;S.batt=nightBatt(M,pvHourly(M,n),S.reserve).size}
   else if(S.pick!=="custom"||S.panels==null){S.panels=OPT.best.panels;S.batt=OPT.best.batt;S.pick="best"}
   S.panels=clamp(S.panels,0,M.maxP);S.batt=clamp(Math.round((S.batt||0)/M.bStep)*M.bStep,0,M.bMax);
+  if(S.planPV==="keep")S.panels=0;if(S.planB==="none")S.batt=0;if(S.planB==="fixed")S.batt=Math.max(0,+S.fixB||0);
   renderStatic();selectionUpdate(true)}
 const local=(x,T)=>{if(CX.fx>1)return usdOnly(x);if(!T||!(T.fx>1))return "";const v=x*T.fx;return v>=1e6?`${fmt(v/1e6,1)} million ${T.cur}`:`${fmt(v)} ${T.cur}`};
 function renderPrices(){
@@ -1377,26 +1431,30 @@ function waterfall(p){
   $("wfNote").innerHTML=`<b>No, we don't multiply by 20–30%.</b> Panel efficiency (about ${fmt(eff*100)}% for a ${fmt(areaM2,2)} m², ${p.panelW} W panel) is already inside the ${p.panelW} W label: it means ${p.panelW} W under full sun of 1,000 W per m² at 25°C. A full-sun hour gives ${p.panelW} Wh before losses. In practice one panel here gives about <b>${fmt(clearW)} W</b> at noon on a clear day (${fmt(clearW/p.panelW*100)}% of the label) and about ${fmt(peak)} W at noon on an average day once clouds are counted, and makes <b>${fmt(final,2)} kWh a day</b> on average (${fmt(f.yield)} kWh a year). That is ${fmt(final/(p.panelW/1000*24)*100)}% of what it would make running at ${p.panelW} W around the clock, because the sun is low or absent most hours.`}
 function verdict(p){
   const run=(n,b)=>{const d=dispatch(M,pvHourly(M,n),b,p.reserve,false);return econ(M,p,n,b,d)};
-  const c0=OPT.curves[0];let nb=0;c0.forEach((v,i)=>{if(v>c0[nb]+1)nb=i});
-  const best=OPT.best,base=sum(M.baseBills),A=run(nb,0);
+  const c0=OPT.curves[0]||OPT.curves[OPT.bList[0]];let nb=0;c0.forEach((v,i)=>{if(v>c0[nb]+1)nb=i});
+  const best=OPT.best,base=M.nowCost,A=run(nb,0),hasEx=M.exN>0||M.exB>0;
   let bn=best.panels,bb=best.batt;if(!bb){bn=nb||best.panels||Math.min(M.maxP,10);bb=clamp(nightBatt(M,pvHourly(M,bn),p.reserve).size,M.bStep,M.bMax)}
   const W=run(bn,bb),N=run(bn,0),extra=W.save-N.save,bcost=bb*M.costB*(1-p.incent/100),bpay=extra>0?bcost/extra:null;
   const TX=M.TF&&M.TF.fx>1?M.TF:TARIFF[M.st.region]||null,mo=x=>usd(x)+(TX?`<div class="hint">${local(x,TX)}</div>`:"");
   const card=(t,sz,o,isBest)=>`<div class="vcard ${isBest?"best":""}"><h4>${t}</h4><div class="sz">${sz}</div><div class="bill">${usd(Math.max(o.cost,0)/12)}<small> /month</small></div>${TX?`<div class="hint">${local(Math.max(o.cost,0)/12,TX)} a month</div>`:""}<div class="bbar"><i style="width:${Math.max(0,o.cost)/base*100}%"></i></div>
     <dl><dt>Up-front</dt><dd>${usd(o.capex)}</dd><dt>Saves</dt><dd>${usd(o.save)}/yr</dd><dt>Pays back in</dt><dd>${o.capex?(o.payback?fmt(o.payback,1)+" yrs":"over 25 yrs"):"—"}</dd><dt>25-yr gain</dt><dd>${o.capex?usd(o.npv):"—"}</dd></dl></div>`;
-  $("vgrid").innerHTML=card("Do nothing","Keep buying all power from the grid.",{cost:base,capex:0,save:0,npv:0},false)+
-    card("Solar only",nb?`${nb} panels · ${fmt(nb*p.panelW/1000,1)} kW`:"Doesn't pay back at these prices",A,!best.batt&&nb>0)+
-    card("Solar + battery",`${bn} panels + ${fmt(bb,1)} kWh battery${best.batt?"":" (for comparison)"}`,W,best.batt>0);
+  const exTxt=hasEx?`Existing ${M.exN?fmt(M.exN*p.panelW/1000,1)+" kWp solar":""}${M.exN&&M.exB?" + ":""}${M.exB?fmt(M.exB,1)+" kWh battery":""}, nothing new.`:"Keep buying all power from the grid.";
+  $("vgrid").innerHTML=card(hasEx?"Keep what you have":"Do nothing",exTxt,{cost:base,capex:0,save:0,npv:0},false)+
+    card(hasEx?"Add solar only":"Solar only",p.planPV==="keep"?"No new panels (your choice)":nb?`${hasEx?"+":""}${nb} panels · ${fmt(nb*p.panelW/1000,1)} kW`:"Doesn't pay back at these prices",A,!best.batt&&nb>0)+
+    card(hasEx?"Add solar + battery":"Solar + battery",`${hasEx&&bn?"+":""}${bn} panels + ${fmt(bb,1)} kWh battery${best.batt?"":" (for comparison)"}`,W,best.batt>0);
+  const C=confidence(p,M);$("conf").innerHTML=`<span class="pill ${C.lvl==="High"?"good":"warn"}">Confidence: ${C.lvl}</span><span>Savings likely within <b>±${C.band}%</b>.</span>`+
+    C.items.map(i=>`<span class="ck ${i.ok?"ok":""}">${i.ok?"✓":"○"} ${i.t}</span>`).join("");
   $("verdictH").textContent=`Is solar worth it for this ${M.hotel?"hotel":"house"}?`;
   $("verdictTag").textContent=(M.hotel?"Hotel":"Home")+(p.loadMode==="real"?" · from the appliance list":" · estimate");
   const pill=(ok,t)=>`<span class="pill ${ok?"good":"warn"}">${t}</span>`;
-  const solarTxt=nb>0?`${pill(true,"Solar: yes")}<span><b>${nb} panels</b> cost ${mo(A.capex).replace(/<div class="hint">(.*?)<\/div>/," ($1)")} and cut the bill from ${usd(base/12)} to ${usd(Math.max(A.cost,0)/12)} a month. They pay for themselves in <b>${A.payback?fmt(A.payback,1):"25+"} years</b>; after that the power is nearly free for another ${A.payback?fmt(Math.max(0,25-A.payback)):0}+ years.</span>`
+  const solarTxt=p.planPV==="keep"?`${pill(true,"Solar: no new panels")}<span>You chose to keep ${M.exN?"the existing panels":"the roof as it is"}.</span>`:nb>0?`${pill(true,"Solar: yes")}<span><b>${nb} panels</b> cost ${mo(A.capex).replace(/<div class="hint">(.*?)<\/div>/," ($1)")} and cut the bill from ${usd(base/12)} to ${usd(Math.max(A.cost,0)/12)} a month. They pay for themselves in <b>${A.payback?fmt(A.payback,1):"25+"} years</b>; after that the power is nearly free for another ${A.payback?fmt(Math.max(0,25-A.payback)):0}+ years.</span>`
     :`${pill(false,"Solar: not at these prices")}<span>Each panel would save less than it costs over 25 years. Check your price per kWh and get a quote. A lower installed-cost quote or a rebate can change this.</span>`;
   const why=M.hp?`On the time-of-day tariff the battery's job is the evening peak at ${ppk(M.TOU.peak*(1+M.TOU.vat/100)/M.TOU.fx)}/kWh, not storing surplus.`:M.metering==="net"?"Net metering already credits exported solar at the full price, so storing it saves little.":`A stored kWh saves the night-time price minus what an exported kWh earns (${ppk(M.exportRate)}${M.exportCap<100?`, and only up to ${M.exportCap}% of output can be sold at all`:""}).`;
-  const battTxt=best.batt>0?`${pill(true,"Battery: yes")}<span>A <b>${fmt(bb,1)} kWh</b> battery adds ${usd(bcost)} and saves another <b>${usd(extra)}/yr</b> ${M.hp?"by running the building through the evening peak":"by keeping midday solar for the evening"}. On its own it pays back in <b>${bpay?fmt(bpay,1):"—"} years</b>, inside its ~15-year life. ${why}</span>`
+  const battOk=p.planB==="fixed"?!!(bpay&&bpay<15):best.batt>0,battTxt=battOk?`${pill(true,"Battery: yes")}<span>A <b>${fmt(bb,1)} kWh</b> battery adds ${usd(bcost)} and saves another <b>${usd(extra)}/yr</b> ${M.hp?"by running the building through the evening peak":"by keeping midday solar for the evening"}. On its own it pays back in <b>${bpay?fmt(bpay,1):"—"} years</b>, inside its ~15-year life. ${why}</span>`
     :`${pill(false,"Battery: not for savings")}<span>A ${fmt(bb,1)} kWh battery would cost ${usd(bcost)} and save only ${usd(Math.max(0,extra))}/yr${bpay?`, about ${fmt(bpay)} years to pay back, longer than it lasts (~15 years)`:""}. ${why} Buy one for backup during outages, not to save money.</span>`;
   const realTxt=p.loadMode==="real"?`<li>${pill(true,M.hotel?"This hotel":"Your home")}<span>Based on your appliance list (${fmt(M.annual/12)} kWh a month).${M.scale!==1?" Scaled to your bills.":" Add your yearly kWh from bills on the left to make this exact."}</span></li>`:"";
   let full=0,got=0;for(const f of M.order){const need=(M.annual-got)/f.yield;if(need<=f.cap){full+=Math.ceil(need);got=M.annual;break}full+=f.cap;got+=f.cap*f.yield}
+  full=Math.max(0,full-M.exN);
   const big=best.panels>full*1.15&&full>0?(()=>{const c=OPT.curves[best.batt]||c0,v100=c[Math.min(full,c.length-1)],add=(best.panels-full)*p.panelW*M.costW*(1-p.incent/100);
     return `<li>${pill(true,"Size")}<span>About <b>${full} panels</b> cover 100% of your yearly use. The best-value ${best.panels} works only because extra power can still be sold: the last ${best.panels-full} panels cost ${usd(add)} more up-front and raise the 25-year gain by only ${usd(best.npv-v100)}. If you'd rather keep it simple or can't sell power, ${full} panels is the sensible size ("Cover 100% of use").</span></li>`})():"";
   $("verdict").innerHTML=`<li>${solarTxt}</li><li>${battTxt}</li>${big}${realTxt}`}
@@ -1409,6 +1467,8 @@ function renderStatic(){
   $("areaUnit").textContent=MET()?"m²":"ft²";
   $("insulHint").textContent=st.region==="Vietnam"?"Most houses in Vietnam have brick or concrete walls with no insulation and single glass: pick Older unless yours was built with insulation.":"Older = no wall insulation, single glass. New build = current energy code.";
   const real=p.loadMode==="real";["waterField","evField","poolField"].forEach(id=>$(id).hidden=real);$("realHint").hidden=!real;if(real)$("evTimeField").hidden=true;$("pitchField").hidden=p.roof==="flat";
+  $("fixBField").hidden=p.planB!=="fixed";$("panels").disabled=p.planPV==="keep";$("batt").disabled=p.planB!=="opt";
+  $("exHint").textContent=M.exN||M.exB?`Today: ${M.exN?`${M.exN} panels (${fmt(M.exN*p.panelW/1000,1)} kWp) on the best roof faces`:""}${M.exN&&M.exB?" and ":""}${M.exB?`a ${fmt(M.exB,1)} kWh battery`:""}. Bill with them ${usd(M.nowCost/12)}/month instead of ${usd(sum(M.baseBills)/12)}. Room left for ${Math.max(0,M.roofCap-M.exN)} more panels.`:"Leave empty if nothing is installed. Whatever is there becomes \"today\", so savings count only what you add.";
   $("storiesOut").textContent=p.stories;$("roofUseOut").textContent=(p.roofUse||100)+"%";$("liftsOut").textContent=p.lifts?p.lifts:"none";$("liftTypeField").hidden=!p.lifts;
   const H=M.hotel,X=M.extra;$("occField").hidden=H;$("hotelFields").hidden=!H;$("liveHead").textContent=H?"How the hotel runs":"How you live";$("hOccOut").textContent=(p.hOcc||0)+"%";
   $("hotelHint").textContent=H?(X.gN?`${X.gN} guest rooms → about ${fmt(X.gN*X.occR*1.8)} guests a night + ${X.staff} staff. Add "Guest room" rows in Rooms with how many of each.`:`Add "Guest room" rows in Rooms (set how many of each).`):"";$("aspectOut").textContent=(+p.aspect).toFixed(1);
@@ -1466,16 +1526,28 @@ function renderStatic(){
 function selectionUpdate(rebuild){
   const p=S,P=pvHourly(M,p.panels||0);SIM=dispatch(M,P,p.batt||0,p.reserve,true);EC=econ(M,p,p.panels||0,p.batt||0,SIM);
   $("panels").max=M.maxP;$("batt").max=M.bMax;$("batt").step=M.bStep;$("panels").value=p.panels;$("batt").value=p.batt;
-  $("panelsOut").textContent=`${p.panels} · ${fmt(EC.kW,1)} kW`;$("battOut").textContent=p.batt?fmt(p.batt,1)+" kWh":"none";
+  $("panelsOut").textContent=`${M.exN?"+":""}${p.panels} · ${fmt(EC.kW,1)} kW${M.exN?` (plus ${M.exN} existing)`:""}`;
+  {const IV=inverterFor(M,p,p.panels||0,p.batt||0);
+    $("invSub").textContent=IV.kw?`(${IV.kw} kW ${IV.hybrid?"hybrid":"on-grid"} · ${IV.three?"three-phase":"single-phase"})`:"(nothing new to connect)";
+    $("invReceipt").innerHTML=IV.need.map(n=>`<tr><td>${n[0]}<div class="hint">${n[2]}</div></td><td>${fmt(n[1],1)} kW</td></tr>`).join("")+
+      `<tr><td>Biggest load running at once<div class="hint">${p.loadMode==="real"?"from your appliance list, busiest hour":"AC, water heater, cooking, lifts and lights together"}</div></td><td>≈ ${fmt(M.peakKW,1)} kW</td></tr>`+
+      `<tr class="total"><td>Recommended inverter</td><td>${IV.kw?IV.kw+" kW":"—"}</td></tr>`;
+    $("invNote").innerHTML=!IV.kw?"No new panels or battery, so no new inverter.":
+      `${IV.hybrid?`A <b>hybrid</b> inverter runs the panels and the battery together${p.backup!=="none"?" and keeps chosen circuits on during a power cut":""}.`:`An <b>on-grid</b> inverter feeds the panels into the house.`} `+
+      (p.backup==="none"||!IV.hybrid?"Without backup the system switches off during a power cut, as grid rules require. ":"")+
+      (IV.battShort?`<span class="pill warn">battery too small</span> For whole-building backup the battery can only give about ${fmt(battPower(p.batt+M.exB),1)} kW, less than the ${fmt(M.peakKW,1)} kW peak: back up essentials, or choose a bigger battery. `:"")+
+      (IV.three?`<b>Three-phase:</b> above about 10 kW (or with more than ~12 kW running at once) you need a three-phase supply and inverter. ${M.st.region==="Vietnam"?"Most Vietnamese homes are single-phase (often 40 A, about 8–9 kW); ask EVN about a three-phase connection, or keep the system at 10 kW or less. ":""}`:"")+
+      (M.exN?`Your existing ${fmt(M.exN*p.panelW/1000,1)} kWp keeps its own inverter; this one is for the new equipment. `:"")+
+      `The installed prices in this app already include the inverter.`}$("battOut").textContent=p.batt?fmt(p.batt,1)+" kWh":"none";
   const best=OPT.best,bd=dispatch(M,pvHourly(M,best.panels),best.batt,p.reserve,false),bestE=econ(M,p,best.panels,best.batt,bd);
   [["snapOpt","best"],["snap100","full"]].forEach(([id,k])=>$(id).setAttribute("aria-pressed",String(S.pick===k)));$("pickCustom").hidden=S.pick!=="custom";
   let full=0,got=0;for(const f of M.order){const need=(M.annual-got)/f.yield;if(need<=f.cap){full+=Math.ceil(need);got=M.annual;break}full+=f.cap;got+=f.cap*f.yield}
-  S._full=full;const fullFits=got>=M.annual-1;
-  $("optText").innerHTML=best.panels>0?`Best value here: <b>${best.panels} panels</b> (${fmt(best.panels*p.panelW/1000,1)} kW)${best.batt?` + <b>${fmt(best.batt,1)} kWh</b> battery`:", no battery"}. Pays back in <b>${bestE.payback?fmt(bestE.payback,1)+" years":"over 25 years"}</b>, worth <b>${usd(best.npv)}</b> in today's money.`
+  full=Math.max(0,full-M.exN);S._full=full;const fullFits=got>=M.annual-1;
+  $("optText").innerHTML=p.planPV==="keep"||p.planB==="fixed"?`With your choices (${p.planPV==="keep"?"no new panels":"panels optimised"}, ${p.planB==="fixed"?fmt(+p.fixB||0,1)+" kWh battery":p.planB==="none"?"no battery":"battery optimised"}): best is <b>${best.panels} panels</b>${best.batt?` + <b>${fmt(best.batt,1)} kWh</b>`:""}, ${bestE.payback?`paying back in <b>${fmt(bestE.payback,1)} years</b>`:"<b>not paying back</b> on savings"}, 25-year value <b>${usd(best.npv)}</b>.`:best.panels>0?`Best value here: <b>${best.panels} panels</b> (${fmt(best.panels*p.panelW/1000,1)} kW)${best.batt?` + <b>${fmt(best.batt,1)} kWh</b> battery`:", no battery"}. Pays back in <b>${bestE.payback?fmt(bestE.payback,1)+" years":"over 25 years"}</b>, worth <b>${usd(best.npv)}</b> in today's money.`
     :`With these prices, solar <b>doesn't pay back</b> here. Try your own price, a lower installed-cost quote or a rebate.`;
   $("npvSub").textContent=`(battery ${p.batt?fmt(p.batt,1)+" kWh":"none"} · roof fits ${M.maxP}${fullFits?"":" · not enough roof for 100%"})`;
   stairs();
-  npvChart($("npvChart"),OPT.curves[p.batt]||OPT.curves[0],best.batt===p.batt?best.panels:null,p.panels,fullFits?full:null);
+  npvChart($("npvChart"),OPT.curves[p.batt]||OPT.curves[0]||OPT.curves[OPT.bList[0]],best.batt===p.batt?best.panels:null,p.panels,fullFits?full:null);
   const alloc=allocate(M,p.panels);
   $("faceTbl").innerHTML=`<thead><tr><th>Roof face</th><th class="n">Faces</th><th class="n">Tilt</th><th class="n">kWh per panel / yr</th><th class="n">Fits</th><th class="n">Panels used</th></tr></thead><tbody>`+
     M.g.faces.map(f=>`<tr><td>${f.name}</td><td class="n">${compassName(f.az)} ${Math.round(f.az)}°</td><td class="n">${Math.round(f.tilt)}°</td><td class="n">${fmt(f.yield)}</td><td class="n">${f.cap}</td><td class="n">${alloc.get(f)||0}</td></tr>`).join("")+"</tbody>";
@@ -1504,10 +1576,10 @@ function selectionUpdate(rebuild){
   $("backupMinis").innerHTML=[["Essentials only",p.batt?fmt(covE,1)+" h":"no battery",Math.min(1,covE/p.hours),`target ${p.hours} h · starting full`],["Essentials + AC",p.batt?fmt(covAC,1)+" h":"no battery",Math.min(1,covAC/p.hours),`AC draws ${fmt(acKW,1)} kW, running about half the time`]]
     .map(r=>`<div class="mini"><div class="k">${r[0]}</div><div class="v">${r[1]}</div><div class="s">${r[3]}</div><div class="gauge"><i style="width:${r[2]*100}%"></i></div></div>`).join("");
   $("strip").innerHTML=[["AC size",MET()?`${fmt(M.btu/3412,1)} kW`:(p.system==="central"?`${M.unit*M.systems} tons`:`${M.rooms.length} heads`),MET()?`${fmt(M.btu)} BTU/h`:`${fmt(M.btu)} BTU/h`],["Use per year",`${fmt(annual)} kWh`,`${usd(cost)}/yr · ${usd(cost/12)}/mo`],
-    ["Solar",`${p.panels} panels`,`${fmt(EC.kW,1)} kW · ${fmt(prod/annual*100)}% of use`],["Battery",p.batt?`${fmt(p.batt,1)} kWh`:"None",p.batt?`${fmt(covE,0)} h of essentials`:(best.batt?`best value: ${fmt(best.batt,1)} kWh`:"doesn't pay on savings here")],
+    ["Solar",`${M.exN?"+":""}${p.panels} panels`,`${M.exN?`with ${M.exN} existing · `:""}${fmt(prod/annual*100)}% of use`],["Battery",p.batt?`${fmt(p.batt,1)} kWh`:"None",p.batt?`${fmt(covE,0)} h of essentials`:(best.batt?`best value: ${fmt(best.batt,1)} kWh`:"doesn't pay on savings here")],
     ["Payback",EC.payback?`${fmt(EC.payback,1)} yrs`:"—",`saves ${usd(EC.save)}/yr`]].map(r=>`<div><div class="k">${r[0]}</div><div class="v">${r[1]}</div><div class="s">${r[2]}</div></div>`).join("");
   $("monthTbl").innerHTML=`<thead><tr><th>Month</th><th class="n">Avg ${MET()?"°C":"°F"}</th><th class="n">Cooling kWh</th><th class="n">Heating kWh</th><th class="n">Total kWh</th><th class="n">Bill before</th><th class="n">Solar kWh</th><th class="n">From battery</th><th class="n">From grid</th><th class="n">Sent out</th></tr></thead><tbody>`+
-    MON.map((mn,m)=>{const tk=sum(M.total[m])*DAYS[m];return `<tr><td>${mn}</td><td class="n">${MET()?fmt((M.cl.T[m]-32)/1.8):fmt(M.cl.T[m])}</td><td class="n">${fmt(sum(M.L.cool[m])*DAYS[m])}</td><td class="n">${fmt(sum(M.L.heat[m])*DAYS[m])}</td><td class="n">${fmt(tk)}</td><td class="n">${usd(M.baseBills[m])}</td><td class="n">${fmt(SIM.mo.prod[m])}</td><td class="n">${fmt(SIM.mo.batt[m])}</td><td class="n">${fmt(SIM.mo.grid[m])}</td><td class="n">${fmt(SIM.mo.exp[m])}</td></tr>`}).join("")+"</tbody>";
+    MON.map((mn,m)=>{const tk=sum(M.total[m])*DAYS[m];return `<tr><td>${mn}</td><td class="n">${MET()?fmt((M.cl.T[m]-32)/1.8):fmt(M.cl.T[m])}</td><td class="n">${fmt(sum(M.L.cool[m])*DAYS[m])}</td><td class="n">${fmt(sum(M.L.heat[m])*DAYS[m])}</td><td class="n">${fmt(tk)}</td><td class="n">${usd(M.nowM[m])}</td><td class="n">${fmt(SIM.mo.prod[m])}</td><td class="n">${fmt(SIM.mo.batt[m])}</td><td class="n">${fmt(SIM.mo.grid[m])}</td><td class="n">${fmt(SIM.mo.exp[m])}</td></tr>`}).join("")+"</tbody>";
   waterfall(p);verdict(p);if(p.loadMode==="real")appTable();
   updateDayTag();
   legend($("dayLegend"),[{name:"Home powered by solar",color:"var(--s-solar)"},{name:"by battery",color:"var(--s-batt)"},{name:"by grid",color:"var(--s-grid)"},...(p.panels?[{name:"Solar produced",color:"var(--ink)",line:true}]:[])]);
@@ -1523,6 +1595,8 @@ function renderMethods(){
     ["Equipment size","Smallest standard size (1.5–5 tons, or 6k–36k BTU/h heads) that covers at least 95% of the load.","ACCA Manual S: roughly 95–115% of the load for AC, up to 125% for heat pumps in cold climates.","Same rule. We don't use \"500 ft² per ton\" rules of thumb. They ignore climate, sun and insulation and usually oversize, and an oversized unit cycles on and off too often and leaves the air damp."],
     ["Split units vs rule of thumb","Each room is sized from its own walls, windows, the direction they face, sun at every hour, people, appliances and humidity, then rounded up to the next standard size (9k, 12k, 18k, 24k BTU). The shop rule (≈600 BTU/m² in Vietnam, 20–25 BTU/ft² on the ENERGY STAR chart) is shown next to it.","ACCA Manual J room-by-room loads; manufacturers' selection guides for ductless units.","Same structure as Manual J. Area-only rules are what shops use; they ignore orientation and insulation and usually oversize, which costs more and dehumidifies poorly."],
     ["Load of an existing home","Your appliance list: how many × watts × hours a day, placed at the hours they run. Air conditioners are entered for the hottest month and scaled to other months by cooling degree-days; heaters by heating degree-days. If you enter yearly kWh from bills, the list is scaled to match.","Energy auditors do a walk-through inventory like this, then calibrate to 12 months of bills (ASHRAE Guideline 14 for calibration).","Same idea. Calibration to bills is the step that makes it reliable; without it, hours of use are guesses."],
+    ["Existing system & inverter","Panels already installed take the sunniest roof faces first; an existing battery is added to any new one. Today's bill includes them, so savings, payback and value count only what is added. Inverter = the largest of: new panels ÷ 1.2 (DC/AC ratio), the battery's charge/discharge power, and the backup load (essentials × 2 for start-up, or the whole building's simultaneous peak × 1.25), rounded up to a standard size.","Installer practice: DC/AC ratio 1.1–1.3; backup inverters sized to the loads they carry including motor start-up (IEC 62040-style load lists).","Simplified: real start-up currents and the exact circuits on the backup panel are checked on site."],
+    ["Confidence","Low (±30%) with only typical values; Medium (±20%) with bills or an appliance list plus the tariff; High (±10%) with bills, the tariff and an installer quote.","ASHRAE Guideline 14 calibration to bills is what makes an energy model trustworthy.","The ranges are rules of thumb for this kind of model, not a statistical interval."],
     ["Hotels","Guest rooms are cooled only when sold (your occupancy %, mostly evening to morning) and corridors aren't cooled. Hot water ≈70 L per occupied room a day; plugs, TV and minibar per room; lobby lights 12 W/m² for 14 h; corridor and stair lights 3 W/m² around the clock; laundry 1.5 kWh per occupied room. In Vietnam, hotels pay EVN's business price by time of day.","Hotel energy audits (ASHRAE Level 1–2) work from metered sub-loads and occupancy records; ASHRAE Handbook—HVAC Applications (hotels, service water heating).","Simplified benchmarks. Enter 12 months of bills (yearly kWh) or use the appliance list to calibrate: hotels vary a lot with star rating, kitchen and laundry."],
     ["Elevators","Energy a day = trips × specific running energy × rated load × average trip length, plus standby power × 24 h. Trips ≈ 6 per occupied room + 40 for staff (hotels) or 6 per person (homes). Rated load 630 kg (hotel) or 320 kg (home lift); average trip about half the rise.","VDI 4707 Part 1 energy classes and ISO 25745-2 (energy calculation for lifts). Running energy 0.8–2.8 mWh per kg·m; standby 50–150 W.","Same method as the standards, with typical values for each lift type instead of the manufacturer's measured figures."],
     ["Time-of-day tariff","Each hour's price follows Vietnam's business tariff: off-peak 0:00–6:00, peak 17:30–22:30 Mon–Sat (6 days in 7), normal otherwise, plus VAT. The battery keeps enough charge for the peak, and (if allowed) charges off-peak from the grid with only what solar won't refill.","EVN Decision 1279/QĐ-BCT prices; time bands in Decision 963/QĐ-BCT (22 Apr 2026). Battery designers use full-year hourly simulation with the same rules.","Same rules on one typical day per month. Sundays are treated as 1/7 of each peak hour at the normal price."],
@@ -1535,26 +1609,30 @@ function renderMethods(){
     ["Electricity prices & climate","2025 average residential prices for each US state (EIA) and each country (national tariffs, converted to USD). Where the tariff is stepped (Vietnam: EVN's 6 steps from 1,984 to 3,460 ₫/kWh + VAT), each month's bill is worked out step by step, so solar and the battery are credited at the price of the most expensive kWh they replace. You can type your own steps. Installed solar and battery costs and export rules default to typical local market values (for example US ≈ $2.75/W; Vietnam ≈ $0.45/W, $230/kWh battery, surplus at ≈1,100 ₫/kWh capped at 50% of output under Decree 58/2025 as amended by Decree 243/2026). The Vietnam costs are estimates from typical market quotes, not an official source. Climate is typical-year monthly temperature and sunshine for the nearest of 86 cities.","Professionals use your actual tariff and hourly weather for your exact site (NREL NSRDB / TMY).","Simplified so the page works without a live data feed. Stepped tariffs are modelled exactly; time-of-day rates are not yet. Enter your own prices and quotes for accuracy."]];
   $("methodTbl").innerHTML=`<thead><tr><th>Topic</th><th>What we calculate</th><th>Professional standard</th><th>Same as the pros?</th></tr></thead><tbody>`+R.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("")+"</tbody>"}
 
+// how much to trust the result: more real data in, narrower range out
+function confidence(p,M){
+  const official=!!(TARIFF[M.st.region]||TOU[M.st.region]),own=+p.price>0||p.priceMode==="tiers"||!!p.tou;
+  const items=[{ok:+p.billKwh>0,pts:3,t:+p.billKwh>0?"matched to bills":"add yearly kWh from bills"},
+    {ok:p.loadMode==="real",pts:1,t:p.loadMode==="real"?"appliance list":"list the appliances"},
+    {ok:+p.costW>0||+p.costB>0,pts:1,t:+p.costW>0||+p.costB>0?"installer quote":"enter an installer quote"},
+    {ok:official||own,pts:1,t:own?"your own prices":official?"official tariff":"use your own electricity price"}];
+  const sc=sum(items.map(i=>i.ok?i.pts:0)),lvl=sc>=5?"High":sc>=3?"Medium":"Low";
+  return {lvl,band:lvl==="High"?10:lvl==="Medium"?20:30,items,sc}}
 // ---------- one-page summary to leave with the homeowner ----------
-function sheetMonthly(){
-  const er=M.exportRate,capF=M.exportCap/100;let bank=0;
-  return MON.map((_,m)=>{const i=SIM.impM[m],x=SIM.expM[m];
-    if(M.hp)return SIM.costM[m]-Math.min(x,(M.metering==="net"?1:capF)*SIM.prodM[m])*er;
-    if(M.metering!=="net")return M.billOf(i)-Math.min(x,capF*SIM.prodM[m])*er;
-    if(!M.TF)return (i-x)*M.flat;
-    const n=i-x-bank;if(n>=0){bank=0;return M.billOf(n)}bank=-n;return 0})}
+function sheetMonthly(){return costParts(M,SIM).months}
 function buildSheet(){
-  const p=S,st=M.st,g=M.g,real=p.loadMode==="real",base=sum(M.baseBills),after=sheetMonthly(),aft=sum(after);
+  const p=S,st=M.st,g=M.g,real=p.loadMode==="real",base=M.nowCost,after=sheetMonthly(),aft=sum(after);
   let meta={};try{meta=JSON.parse(localStorage.getItem("suncoolSheet")||"{}")}catch(e){}
   const today=new Date().toLocaleDateString(MET()?"en-GB":"en-US",{year:"numeric",month:"long",day:"numeric"});
-  const sys=p.panels?`${p.panels} panels × ${p.panelW} W = ${fmt(EC.kW,1)} kW`+(p.batt?` + ${fmt(p.batt,1)} kWh battery`:", no battery"):"No system chosen";
+  const sys=(p.panels||p.batt?`${p.panels?`${M.exN?"+":""}${p.panels} panels × ${p.panelW} W = ${fmt(EC.kW,1)} kW`:"No new panels"}`+(p.batt?` + ${fmt(p.batt,1)} kWh battery`:", no new battery"):"Nothing new")+(M.exN||M.exB?` (on top of the existing ${M.exN?fmt(M.exN*p.panelW/1000,1)+" kWp":""}${M.exN&&M.exB?" + ":""}${M.exB?fmt(M.exB,1)+" kWh":""})`:"");
+  const IV=inverterFor(M,p,p.panels||0,p.batt||0),C=confidence(p,M);
   const pickTxt={best:"best value",full:"covers 100% of yearly use",custom:"chosen by hand"}[p.pick]||"";
   const heads=M.rooms.filter(r=>r.type!=="bath"),tot=sum(heads.map(r=>r.head*r.n)),us=US_STATES.has(st.region)&&!M.hotel;
   const ac=us&&p.system==="central"?`One central system of ${M.unit*M.systems} tons (${capBoth(M.btu)})`:
     `Split units: `+heads.map(r=>`${esc(r.name)} ${r.n>1?r.n+" × ":""}${fmt(r.head)} BTU (${HP[r.head]} HP)`).join(" · ")+` (total ${fmt(tot)} BTU)`+(M.hotel?`. Or a VRF system with about ${fmt(M.btu/3412)} kW of outdoor capacity`:"");
   const U=M.TOU,uk=U?(1+(+U.vat||0)/100)/U.fx:1,T=M.TF,price=U?`${U.src}. Off-peak ${ppk(U.off*uk)}, normal ${ppk(U.norm*uk)}, peak ${ppk(U.peak*uk)} per kWh incl. VAT. Average paid today ${ppk(M.price)}/kWh.`:T?`${T.src||"Stepped tariff"}; ${T.tiers.length} steps from ${fmt(T.tiers[0][1])} to ${fmt(T.tiers[T.tiers.length-1][1])} ${T.cur}/kWh${T.vat?` + ${T.vat}% VAT`:""}. Average paid today ${ppk(M.price)}/kWh.`:`${ppk(M.price)} per kWh${+p.price>0?" (your price)":` (average for ${st.region})`}.`;
   const exp=M.metering==="net"?"Net metering: exported power offsets bought power 1:1.":`Exported power paid ${ppk(M.exportRate)}/kWh${M.exportCap<100?`, up to ${M.exportCap}% of production`:""}${st.region==="Vietnam"?" (Decree 58/2025, amended by Decree 243/2026)":""}.`;
-  const sp=SIM.mo.prod,rows=MON.map((mn,m)=>{const use=sum(M.total[m])*DAYS[m];return `<tr><td>${mn}</td><td class="n">${fmt(use)}</td><td class="n">${fmt(sp[m])}</td><td class="n">${fmt(SIM.impM[m])}</td><td class="n">${usd(M.baseBills[m])}</td><td class="n">${usd(after[m])}</td></tr>`}).join("");
+  const sp=SIM.mo.prod,rows=MON.map((mn,m)=>{const use=sum(M.total[m])*DAYS[m];return `<tr><td>${mn}</td><td class="n">${fmt(use)}</td><td class="n">${fmt(sp[m])}</td><td class="n">${fmt(SIM.impM[m])}</td><td class="n">${usd(M.nowM[m])}</td><td class="n">${usd(after[m])}</td></tr>`}).join("");
   const ver=$("verdict").innerHTML,vg=$("vgrid").innerHTML;
   $("sheetPage").innerHTML=`
   <h1 id="shTitle">Solar &amp; battery for your ${M.hotel?"hotel":"home"}</h1>
@@ -1562,12 +1640,14 @@ function buildSheet(){
   <div class="meta"><div><label for="shHome">Home / owner</label><input id="shHome" value="${esc(meta.home||"")}" placeholder="Name, address"></div>
     <div><label for="shBy">Prepared by</label><input id="shBy" value="${esc(meta.by||"")}" placeholder="Your name, phone"></div></div>
   <div class="big">
-    <div><div class="k">Bill today</div><div class="v">${usd(base/12)}</div><div class="s">a month on average · ${fmt(M.annual/12)} kWh</div></div>
+    <div><div class="k">Bill today</div><div class="v">${usd(base/12)}</div><div class="s">a month on average · ${fmt(M.annual/12)} kWh used${M.exN||M.exB?", with what's installed":""}</div></div>
     <div><div class="k">Bill with the system</div><div class="v">${usd(Math.max(EC.cost,0)/12)}</div><div class="s">a month${EC.cost<-1?` · ${usd(-EC.cost)}/yr credit`:""}</div></div>
     <div><div class="k">Up-front cost</div><div class="v">${usd(EC.capex)}</div><div class="s">${p.incent?`after ${p.incent}% incentives`:"installed, before any rebate"}</div></div>
     <div><div class="k">Pays back in</div><div class="v">${EC.payback?fmt(EC.payback,1)+" yrs":"25+ yrs"}</div><div class="s">saves ${usd(EC.save)}/yr · 25-yr gain ${usd(EC.npv)}</div></div>
   </div>
+  <p style="margin:10px 0 0"><span class="pill ${C.lvl==="High"?"good":"warn"}">Confidence: ${C.lvl}</span> Savings likely within ±${C.band}%. ${C.items.filter(i=>i.ok).map(i=>i.t).join(" · ")||"Based on typical values"}</p>
   <h2>Proposed system</h2>
+  <p style="margin:0 0 4px">${IV.kw?`Inverter: <b>${IV.kw} kW ${IV.hybrid?"hybrid":"on-grid"}</b>, ${IV.three?"three-phase supply":"single-phase"}${p.backup!=="none"&&IV.hybrid?`, backup for ${p.backup==="whole"?"the whole building":"essentials"} during power cuts`:""}.`:""}</p>
   <p style="margin:0"><b>${sys}</b>${pickTxt?` (${pickTxt})`:""}. Makes about ${fmt(sum(sp))} kWh a year, ${fmt(sum(sp)/M.annual*100)}% of what the ${M.hotel?"hotel":"home"} uses; ${fmt(sum(sp)?Math.max(0,sum(sp)-sum(SIM.mo.exp))/sum(sp)*100:0)}% of it is used on site.</p>
   <h2>Three choices compared</h2><div class="vgrid">${vg}</div>
   <ul class="verdict">${ver}</ul>
@@ -1602,7 +1682,7 @@ $("addType").innerHTML=Object.entries(TYPES).map(([k,t])=>`<option value="${k}">
 const NUMS=["roofUse","lifts","hOcc","front","pitch","stories","aspect","halls","occ","setpoint","seer","ev","panelW","incent","reserve","esc","disc","loss","deg"];
 function syncInputs(){
   NUMS.concat(["ess","hours"]).forEach(k=>$(k).value=S[k]);$("hour").value=S.hour;
-  $("pool").checked=S.pool;$("laundry").checked=S.laundry!==false;$("gridCharge").checked=S.gridCharge!==false;$("liftType").value=S.liftType||"std";["billKwh","exportCap"].forEach(k=>$(k).value=S[k]);moneyInputs();$("city").value=S.cityLabel;
+  $("pool").checked=S.pool;$("laundry").checked=S.laundry!==false;$("gridCharge").checked=S.gridCharge!==false;$("liftType").value=S.liftType||"std";["billKwh","exportCap","exPV","exB","fixB"].forEach(k=>$(k).value=S[k]);moneyInputs();$("city").value=S.cityLabel;
   if(S.coord)$("coords").value=`${S.coord.lat.toFixed(4)}, ${S.coord.lon.toFixed(4)}`;
   document.querySelectorAll(".seg").forEach(g=>g.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===String(S[g.dataset.key])))))}
 let pend=null;const schedule=()=>{cancelAnimationFrame(pend);pend=requestAnimationFrame(fullUpdate)};
@@ -1618,7 +1698,7 @@ $("hotelEx").addEventListener("click",()=>{const ft=m=>m/0.0929;Object.assign(S,
   water:"elec",system:"mini",setpoint:77,insul:S.cityLabel.includes("Vietnam")?"poor":S.insul,loadMode:"est",apps:null,priceMode:"auto",tiers:null,tou:null,pick:"best",
   rooms:[{type:"lobby",name:"Lobby & reception",area:ft(30),facade:"front",n:1},{type:"restaurant",name:"Breakfast room",area:ft(30),facade:"back",n:1},
     {type:"guest",name:"Guest rooms, street side",area:ft(22),facade:"front",n:10},{type:"guest",name:"Guest rooms, back",area:ft(22),facade:"back",n:10}]});syncInputs();schedule()});
-["billKwh","exportCap"].forEach(k=>$(k).addEventListener("input",e=>{S[k]=e.target.value;S.manual=false;schedule()}));
+["billKwh","exportCap","exPV","exB","fixB"].forEach(k=>$(k).addEventListener("input",e=>{S[k]=e.target.value;S.manual=false;schedule()}));
 Object.keys(MIN).forEach(k=>$(k).addEventListener("input",e=>{const v=e.target.value;S[k]=v===""?"":CX.fx>1?String(+v/(MIN[k][0]*CX.fx)):v;S.manual=false;schedule()}));
 document.querySelectorAll(".seg").forEach(g=>g.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const k=g.dataset.key;S[k]=b.dataset.v;if(k!=="units"&&k!=="money")S.manual=false;
   if(k==="loadMode"&&S.loadMode==="real"&&!S.apps&&M)S.apps=seedApps();syncInputs();schedule()}));
@@ -1654,7 +1734,7 @@ $("addRoom").addEventListener("click",()=>{const t=$("addType").value,n=S.rooms.
 $("panels").addEventListener("input",e=>{S.panels=+e.target.value;S.manual=true;S.pick="custom";selectionUpdate(true)});
 $("batt").addEventListener("input",e=>{S.batt=+e.target.value;S.manual=true;S.pick="custom";selectionUpdate(true)});
 $("snapOpt").addEventListener("click",()=>{S.manual=false;S.pick="best";S.panels=OPT.best.panels;S.batt=OPT.best.batt;selectionUpdate(true)});
-$("snap100").addEventListener("click",()=>{const n=clamp(S._full||0,0,M.maxP);S.panels=n;S.batt=nightBatt(M,pvHourly(M,n),S.reserve).size;S.manual=true;S.pick="full";selectionUpdate(true)});
+$("snap100").addEventListener("click",()=>{const n=S.planPV==="keep"?0:clamp(S._full||0,0,M.maxP);S.panels=n;S.batt=S.planB==="none"?0:S.planB==="fixed"?+S.fixB||0:nightBatt(M,pvHourly(M,n),S.reserve).size;S.manual=true;S.pick="full";selectionUpdate(true)});
 function editTiers(){if(!S.tiers)S.tiers=JSON.parse(JSON.stringify(M.TF||{cur:"$",fx:1,vat:0,tiers:[[null,M.flat]]}));S.priceMode="tiers";S.manual=false}
 $("tiers").addEventListener("input",e=>{const id=e.target.id,i=+id.slice(2),v=parseFloat(e.target.value);if(isNaN(v)||v<0)return;editTiers();const t=S.tiers.tiers[i];if(!t)return;
   if(id.startsWith("tu"))t[0]=v;else t[1]=v;schedule()});
