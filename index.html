@@ -1,0 +1,1672 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Size home and hotel air conditioning, estimate electricity use and bills, and find the best number of solar panels and battery size, with a 3D building and cited methods.">
+<title>Sun &amp; Cool Sizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: sticky input console left (place, house, rooms, habits); right column reads top-down: 3D house + live power flow → day chart → AC → usage → solar → battery → methods. */
+:root{
+  --bg:#f3f5f7; --card:#ffffff; --sunk:#e9edf1; --ink:#17212b; --muted:#5b6774; --line:#d9e0e6;
+  --sun:#c97c00; --sun-soft:#fff2d9; --cool:#2a78d6; --cool-soft:#e3eefb; --good:#1d8a5a; --warn:#b45309; --bad:#c2410c;
+  --s-solar:#eda100; --s-batt:#1baf7a; --s-grid:#2a78d6;
+  --u-cool:#2a78d6; --u-heat:#eb6834; --u-home:#1baf7a; --u-ev:#eda100;
+  --night:rgba(40,60,90,.08);
+  --f-display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body:"Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#15191d; --card:#1c2126; --sunk:#232a30; --ink:#e4e8ec; --muted:#98a3ae; --line:#2d353d;
+  --sun:#f0a52a; --sun-soft:#3a2e17; --cool:#5598e7; --cool-soft:#1d2c3e; --good:#4cc38a; --warn:#f0a52a; --bad:#f07a4a;
+  --s-solar:#c98500; --s-batt:#199e70; --s-grid:#3987e5;
+  --u-cool:#3987e5; --u-heat:#d95926; --u-home:#199e70; --u-ev:#c98500; --night:rgba(120,150,200,.07); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#15191d; --card:#1c2126; --sunk:#232a30; --ink:#e4e8ec; --muted:#98a3ae; --line:#2d353d;
+  --sun:#f0a52a; --sun-soft:#3a2e17; --cool:#5598e7; --cool-soft:#1d2c3e; --good:#4cc38a; --warn:#f0a52a; --bad:#f07a4a;
+  --s-solar:#c98500; --s-batt:#199e70; --s-grid:#3987e5;
+  --u-cool:#3987e5; --u-heat:#d95926; --u-home:#199e70; --u-ev:#c98500; --night:rgba(120,150,200,.07); color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:1320px;margin:0 auto;padding-inline:20px;padding-block:24px 64px}
+header.top{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:12px 24px;margin-bottom:20px}
+h1{font-family:var(--f-display);font-weight:700;font-size:clamp(28px,4vw,40px);line-height:1.05;margin:0;letter-spacing:-.02em}
+h1 .sun{color:var(--sun)} h1 .cool{color:var(--cool)}
+.lede{margin:6px 0 0;color:var(--muted);max-width:66ch}
+h2{font-family:var(--f-display);font-weight:700;font-size:22px;margin:0;letter-spacing:-.01em;text-wrap:balance}
+h3{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px;font-weight:700}
+.layout{display:grid;grid-template-columns:minmax(300px,370px) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:960px){.layout{grid-template-columns:minmax(0,1fr)}}
+aside.console{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);max-height:calc(100vh - 24px);overflow:auto;display:flex;flex-direction:column;gap:14px;padding-right:4px}
+@media (max-width:960px){aside.console{position:static;max-height:none;overflow:visible}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+.field{display:flex;flex-direction:column;gap:6px;margin-top:14px}
+.panel > h3 + .field,.panel > h3 + .rooms-head{margin-top:0}
+.field label,.lbl{font-size:13px;font-weight:700;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.field label output,.lbl output{font-family:var(--f-mono);font-weight:600;font-size:13px;color:var(--ink)}
+.hint{font-size:12px;color:var(--muted);font-weight:400}
+input[type=text],input[type=number],select{font:inherit;font-size:14px;color:var(--ink);background:var(--sunk);border:1px solid var(--line);border-radius:7px;padding:8px 10px;width:100%;min-width:0}
+input:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--cool);outline-offset:2px}
+input[type=range]{width:100%;accent-color:var(--cool)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row2 > .field{margin-top:0}
+.seg{display:flex;flex-wrap:wrap;gap:4px;background:var(--sunk);border-radius:8px;padding:3px}
+.seg button{flex:1 1 auto;font:inherit;font-size:13px;border:0;background:transparent;color:var(--muted);padding:6px 8px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--card);color:var(--ink);font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.check{display:flex;gap:8px;align-items:center;font-size:14px;margin-top:12px}
+.sunstrip{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;align-items:end;height:48px;margin-top:12px}
+.sunstrip i{display:block;background:var(--s-solar);border-radius:3px 3px 0 0;min-height:2px}
+.sunlbl{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;font-size:10px;color:var(--muted);text-align:center;font-family:var(--f-mono)}
+.climate-note{font-size:12.5px;color:var(--muted);margin:8px 0 0}
+.climate-note.err{color:var(--bad)}
+[hidden]{display:none!important}
+#sheet{position:fixed;inset:0;z-index:60;background:rgba(10,14,18,.55);overflow:auto;padding:16px}
+.sheet-bar{max-width:820px;margin:0 auto 10px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.sheet-page{--bg:#fff;--card:#fff;--sunk:#eef1f4;--ink:#17212b;--muted:#5b6774;--line:#d9e0e6;--sun:#c97c00;--good:#1d8a5a;--warn:#b45309;--s-grid:#2a78d6;--s-solar:#eda100;
+  max-width:820px;margin:0 auto;background:#fff;color:#17212b;padding:28px 32px;border-radius:10px;font-size:13.5px;line-height:1.45;color-scheme:light}
+.sheet-page h1{font-family:var(--f-display);font-size:26px;margin:0}
+.sheet-page h2{font-size:15px;margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+.sheet-page .meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 18px;margin-top:12px}
+.sheet-page .meta label{font-size:11px;color:var(--muted);display:block}
+.sheet-page .meta input{width:100%;border:0;border-bottom:1px solid var(--line);font:inherit;padding:2px 0;background:transparent;color:inherit}
+.sheet-page .big{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
+.sheet-page .big>div{font-family:var(--f-body);letter-spacing:normal;border:1px solid var(--line);border-radius:10px;padding:10px}
+.sheet-page .big .k{font-size:11px;color:var(--muted)}.sheet-page .big .v{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}.sheet-page .big .s{font-size:11.5px;color:var(--muted)}
+.sheet-page table{width:100%;border-collapse:collapse;font-size:12.5px;color:var(--ink);font-variant-numeric:tabular-nums}
+.sheet-page th,.sheet-page td{padding:4px 6px;border-bottom:1px solid var(--line);text-align:left}.sheet-page .n{text-align:right}
+.sheet-page tfoot td{font-weight:700;border-top:1.5px solid var(--ink)}
+.sheet-page .vgrid{gap:8px}.sheet-page .vcard{padding:10px}.sheet-page .vcard .bill{font-size:20px}
+.sheet-page ul.verdict{padding-left:0}.sheet-page .fine{font-size:11px;color:var(--muted);margin-top:16px}
+@media (max-width:640px){.sheet-page{padding:18px 16px}.sheet-page .big{grid-template-columns:repeat(2,minmax(0,1fr))}.sheet-page .meta{grid-template-columns:1fr}}
+@media print{body.sheet-open>*:not(#sheet){display:none!important}body.sheet-open{background:#fff}
+  #sheet{position:static;background:none;padding:0;overflow:visible}.sheet-bar{display:none!important}
+  .sheet-page{max-width:none;padding:0;border-radius:0}.sheet-page .vgrid{grid-template-columns:repeat(3,minmax(0,1fr))}.sheet-page .big{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .sheet-page h2,.sheet-page table,.sheet-page .vcard{break-inside:avoid}@page{margin:12mm}}
+.btn{font:inherit;font-size:13px;font-weight:700;border:1px solid var(--line);background:var(--sunk);color:var(--ink);padding:7px 12px;border-radius:7px;cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--sun);border-color:var(--sun);color:#1b1305}
+.btn.small{padding:4px 9px;font-size:12px}
+.pick{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.pick .btn[aria-pressed="false"]{background:var(--card)}
+.pick .btn[aria-pressed="true"]{background:var(--sun);border-color:var(--sun);color:#1b1305;box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--sun)}
+.pick .btn[aria-pressed="true"]::before{content:"✓ "}
+.pick .custom{font-size:12px;font-weight:700;color:var(--muted);padding:4px 8px;border:1px dashed var(--line);border-radius:7px}
+.tier{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(0,1fr) 22px;gap:5px;align-items:center;font-size:12px}
+.tier input{padding:6px 7px;font-size:13px}
+.tier .x{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;padding:2px 4px}
+.tier.head{color:var(--muted);font-weight:700}
+.stairs{margin-top:6px}
+.tl{display:grid;grid-template-columns:repeat(24,1fr);gap:1px;width:96px;height:14px;border-radius:3px;overflow:hidden}
+.tl i{background:var(--sunk)}.tl i.d{background:var(--sun-soft)}.tl i.on{background:var(--s-grid)}.tl i.on.d{background:var(--s-solar)}
+table.apps td{vertical-align:middle}
+td.how{white-space:normal;min-width:260px;font-size:12.5px;color:var(--muted);max-width:440px;line-height:1.45}
+table.apps input,table.apps select{padding:5px 6px;font-size:13px;width:100%;min-width:0}
+table.apps input.nm{min-width:170px}
+table.apps .num{width:58px}
+table.apps th,table.apps td{padding-left:4px;padding-right:4px}
+table.apps .x{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:18px}
+.vgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:760px){.vgrid{grid-template-columns:1fr}}
+.vcard{border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--card)}
+.vcard.best{border-color:var(--sun);box-shadow:0 0 0 1px var(--sun)}
+.vcard h4{margin:0 0 4px;font-size:14px}
+.vcard .sz{font-size:12.5px;color:var(--muted);min-height:2.4em}
+.vcard .bill{font-size:26px;font-weight:800;margin-top:8px;font-variant-numeric:tabular-nums}
+.vcard .bill small{font-size:13px;font-weight:600;color:var(--muted)}
+.vcard .bbar{height:8px;border-radius:4px;background:var(--sunk);margin:6px 0 10px;overflow:hidden}
+.vcard .bbar i{display:block;height:100%;background:var(--s-grid);border-radius:4px}
+.vcard dl{display:grid;grid-template-columns:auto auto;gap:4px 10px;margin:0;font-size:13px}
+.vcard dt{color:var(--muted)}.vcard dd{margin:0;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.verdict{margin:14px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+.verdict li{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;font-size:14px;line-height:1.5}
+.wf{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.wf .r{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,2fr) 92px;gap:10px;align-items:center;font-size:13px}
+.wf .b{height:14px;background:var(--sunk);border-radius:4px;position:relative;overflow:hidden}
+.wf .b i{position:absolute;top:0;bottom:0;border-radius:4px}
+.wf .v{text-align:right;font-family:var(--f-mono);font-size:12.5px}
+.acopt{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:18px}
+@media (max-width:760px){.acopt{grid-template-columns:1fr}}
+.acopt .vcard ul{margin:6px 0 0;padding-left:18px;font-size:13px;line-height:1.6}
+.stairs svg{display:block;width:100%;height:auto}
+.compass{display:flex;gap:12px;align-items:center;flex-direction:row}
+.compass svg{flex:none;width:64px;height:64px}
+.compass .field{flex:1;margin:0}
+.rooms{display:flex;flex-direction:column;gap:6px}
+.room{display:grid;grid-template-columns:minmax(0,1.5fr) 50px minmax(0,.8fr) minmax(0,1.1fr) 22px;gap:5px;align-items:center}
+.room input,.room select{padding:6px 7px;font-size:13px}
+.room .x{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;padding:2px 4px}
+.room .x:hover{color:var(--bad)}
+.rooms-head{display:grid;grid-template-columns:minmax(0,1.5fr) 50px minmax(0,.8fr) minmax(0,1.1fr) 22px;gap:5px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.addrow{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.addrow select{flex:1 1 120px;width:auto}
+.area-total{font-size:12.5px;margin-top:8px;font-family:var(--f-mono);color:var(--muted)}
+
+main{display:flex;flex-direction:column;gap:20px;min-width:0}
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.strip > div{background:var(--card);padding:12px 14px;min-width:0}
+.strip .k{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.strip .v{font-family:var(--f-display);font-weight:700;font-size:24px;line-height:1.15;margin-top:2px}
+.strip .s{font-size:12.5px;color:var(--muted);font-family:var(--f-mono)}
+section.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;min-width:0}
+.sechead{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;justify-content:space-between;margin-bottom:14px}
+.tag{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:3px 8px;border-radius:5px}
+.tag.cool{background:var(--cool-soft);color:var(--cool)} .tag.sun{background:var(--sun-soft);color:var(--sun)}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+@media (max-width:760px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.big{font-family:var(--f-display);font-weight:700;font-size:52px;line-height:1;letter-spacing:-.02em}
+.big small{font-size:20px;color:var(--muted);font-weight:500;margin-left:4px}
+.receipt{width:100%;border-collapse:collapse;font-size:13.5px}
+.receipt td{padding:6px 0;border-bottom:1px dashed var(--line);vertical-align:top}
+.receipt td:last-child{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap;padding-left:12px}
+.receipt tr.total td{border-bottom:0;border-top:2px solid var(--ink);font-weight:700;padding-top:8px}
+.receipt .bar{display:block;height:5px;border-radius:3px;background:var(--cool);margin-top:4px;opacity:.75}
+.receipt .bar.sunb{background:var(--sun)}
+.tbl-wrap{overflow-x:auto}
+table.data{width:100%;border-collapse:collapse;font-size:13px}
+table.data th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.data td{padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.data td.n,table.data th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+table.method td{white-space:normal;vertical-align:top;font-size:13px;line-height:1.45;min-width:170px}
+table.method td:first-child{font-weight:700;min-width:120px}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px 18px;margin-top:14px}
+.kv .k{font-size:12px;color:var(--muted)}
+.kv .v{font-family:var(--f-mono);font-weight:600;font-size:16px;font-variant-numeric:tabular-nums}
+.note{font-size:13px;color:var(--muted);margin:10px 0 0;max-width:78ch}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.pill.good{color:var(--good)} .pill.warn{color:var(--warn)} .pill.bad{color:var(--bad)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--muted);margin-bottom:6px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+.legend i.line{height:3px;border-radius:2px;width:16px}
+.chart{position:relative;width:100%}
+.chart svg{width:100%;height:auto;display:block;overflow:visible;touch-action:pan-y}
+.chart text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
+.tip{position:absolute;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;box-shadow:0 6px 18px rgba(0,0,0,.18);min-width:170px;z-index:5;color:var(--ink)}
+.tip b{display:block;margin-bottom:4px}
+.tip .r{display:flex;justify-content:space-between;gap:14px;font-family:var(--f-mono);font-size:12px}
+.tip .r i{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:6px}
+.optbar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;background:var(--sun-soft);border-radius:10px;padding:12px 14px;margin-bottom:14px}
+.optbar .t{font-size:14px;flex:1 1 320px}
+.sliders{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;margin:6px 0 10px}
+@media (max-width:600px){.sliders{grid-template-columns:minmax(0,1fr)}}
+.sliders input[type=range]{accent-color:var(--sun)}
+.minis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:14px}
+.mini{border:1px solid var(--line);border-radius:10px;padding:12px;min-width:0}
+.mini .k{font-size:12px;color:var(--muted);font-weight:700}
+.mini .v{font-family:var(--f-display);font-size:24px;font-weight:700;margin-top:2px}
+.mini .s{font-size:12px;color:var(--muted)}
+.gauge{height:8px;background:var(--sunk);border-radius:4px;overflow:hidden;margin-top:8px}
+.gauge i{display:block;height:100%;background:var(--s-batt);border-radius:4px}
+
+/* 3D scene: a sky, so it keeps its own colours in both themes */
+.scene-wrap{position:relative;border-radius:10px;overflow:hidden;background:#bcd8ee;height:clamp(320px,52vw,540px)}
+.scene-wrap canvas{display:block;width:100%;height:100%;touch-action:none}
+.lab{position:absolute;left:0;top:0;background:rgba(16,20,26,.82);color:#f3f5f7;font-size:12.5px;padding:5px 9px;border-radius:7px;white-space:nowrap;pointer-events:none;font-family:var(--f-mono);line-height:1.3;border:1px solid rgba(255,255,255,.12)}
+.lab b{font-family:var(--f-body);font-weight:700;margin-right:5px}
+.lab i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px}
+.scene-hud{position:absolute;left:12px;top:12px;background:rgba(16,20,26,.78);color:#f3f5f7;border-radius:8px;padding:8px 11px;font-size:13px;pointer-events:none;max-width:min(330px,70%)}
+.scene-hud .tm{font-family:var(--f-display);font-size:22px;font-weight:700;line-height:1.1}
+.scene-hud .sub{font-size:12px;opacity:.85}
+.scene-key{position:absolute;right:10px;bottom:10px;background:rgba(16,20,26,.72);color:#f3f5f7;border-radius:8px;padding:6px 10px;font-size:12px;display:flex;flex-wrap:wrap;gap:4px 12px;pointer-events:none;max-width:calc(100% - 20px)}
+.scene-key i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
+.scene-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#17212b;padding:20px;text-align:center}
+.timebar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-top:12px}
+.months{display:flex;flex-wrap:wrap;gap:3px}
+.months button{font:inherit;font-size:12px;font-family:var(--f-mono);border:1px solid var(--line);background:var(--card);color:var(--muted);padding:4px 7px;border-radius:6px;cursor:pointer}
+.months button[aria-pressed="true"]{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.hourctl{display:flex;gap:10px;align-items:center;flex:1 1 260px;min-width:0}
+.hourctl input{flex:1;accent-color:var(--sun)}
+.now{font-size:14.5px;margin:14px 0 0;max-width:80ch;line-height:1.55}
+.now b{font-family:var(--f-mono)}
+.flowgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+@media (max-width:640px){.flowgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.flow{border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0}
+.flow .k{font-size:12px;color:var(--muted);font-weight:700;display:flex;align-items:center;gap:6px}
+.flow .k i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.flow .v{font-family:var(--f-display);font-size:22px;font-weight:700}
+.flow .s{font-size:12px;color:var(--muted)}
+footer{margin-top:28px;color:var(--muted);font-size:12.5px;max-width:90ch}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1><span class="cool">Cool</span> it, <span class="sun">power</span> it.</h1>
+      <p class="lede">Shape your house, turn it toward the sun, and see how sunlight changes the AC you need. Then watch your panels power the day, fill the battery, and carry you through the night.</p>
+    </div>
+    <span class="hint" id="savedNote">Example home loaded. Change anything on the left.</span>
+  </header>
+
+  <div class="layout">
+    <aside class="console" aria-label="Your home">
+      <div class="panel">
+        <h3>Where you live</h3>
+        <div class="field" style="margin-top:0"><span class="lbl">Units</span>
+          <div class="seg" data-key="units"><button data-v="auto">Auto</button><button data-v="metric">Metric · m², °C, kW</button><button data-v="us">US · ft², °F</button></div></div>
+        <div class="field"><span class="lbl">Money</span>
+          <div class="seg" data-key="money"><button data-v="local">Local currency (₫ in Vietnam)</button><button data-v="usd">US $</button></div></div>
+        <div class="field">
+          <label for="city">City</label>
+          <input type="text" id="city" list="cityList" autocomplete="off">
+          <datalist id="cityList"></datalist>
+        </div>
+        <div class="field">
+          <label for="coords">Or exact coordinates</label>
+          <input type="text" id="coords" placeholder="20°50'59.99&quot;N 106°40'59.99&quot;E  or  20.85, 106.68">
+          <button class="btn" id="useCoords" type="button">Use these coordinates</button>
+        </div>
+        <div class="sunstrip" id="sunstrip" aria-hidden="true"></div>
+        <div class="sunlbl" aria-hidden="true"><span>J</span><span>F</span><span>M</span><span>A</span><span>M</span><span>J</span><span>J</span><span>A</span><span>S</span><span>O</span><span>N</span><span>D</span></div>
+        <p class="climate-note" id="climateNote"></p>
+      </div>
+
+      <div class="panel">
+        <h3>House shape</h3>
+        <div class="field" style="margin-top:0"><span class="lbl">Building</span>
+          <div class="seg" data-key="bldg"><button data-v="home">Home</button><button data-v="hotel">Hotel / guest house</button></div>
+          <button class="btn small" id="hotelEx" type="button" style="align-self:flex-start">Load a 6-floor mini-hotel example</button></div>
+        <div class="compass field">
+          <svg viewBox="-34 -34 68 68" id="compassSvg" aria-hidden="true"></svg>
+          <div class="field"><label for="front">Front faces <output id="frontOut"></output></label><input type="range" id="front" min="0" max="355" step="5"></div>
+        </div>
+        <div class="field"><span class="lbl">Roof</span>
+          <div class="seg" data-key="roof"><button data-v="gable">Gable</button><button data-v="shed">Single slope</button><button data-v="flat">Flat</button></div></div>
+        <div class="field" id="pitchField"><label for="pitch">Roof pitch <output id="pitchOut"></output></label><input type="range" id="pitch" min="10" max="45" step="1"></div>
+        <div class="field"><span class="lbl">Roof colour</span>
+          <div class="seg" data-key="roofColor"><button data-v="dark">Dark</button><button data-v="medium">Medium</button><button data-v="light">Light</button><button data-v="white">Cool white</button></div></div>
+        <div class="row2 field">
+          <div class="field"><label for="stories">Floors <output id="storiesOut"></output></label><input type="range" id="stories" min="1" max="12"></div>
+          <div class="field"><label for="aspect">Width ÷ depth <output id="aspectOut"></output></label><input type="range" id="aspect" min="1" max="2.5" step="0.1"></div>
+        </div>
+        <div class="field"><label for="roofUse">Roof free for panels <output id="roofUseOut"></output></label><input type="range" id="roofUse" min="20" max="100" step="5">
+          <span class="hint">Leave out water tanks, AC outdoor units, the stair and lift housing, drying space.</span></div>
+        <div class="row2 field">
+          <div class="field"><label for="lifts">Elevators <output id="liftsOut"></output></label><input type="range" id="lifts" min="0" max="4" step="1"></div>
+          <div class="field" id="liftTypeField"><label for="liftType">Elevator type</label><select id="liftType"><option value="modern">Modern, inverter</option><option value="std">Standard</option><option value="hyd">Hydraulic</option></select></div>
+        </div>
+        <div class="field"><span class="lbl">Ceiling height</span>
+          <div class="seg" data-key="ceil" id="ceilSeg"><button data-v="8">8 ft</button><button data-v="9">9 ft</button><button data-v="10">10 ft</button><button data-v="12">12 ft</button></div></div>
+        <div class="field"><span class="lbl">Windows</span>
+          <div class="seg" data-key="windows"><button data-v="few">Few</button><button data-v="avg">Average</button><button data-v="many">Lots of glass</button></div></div>
+        <div class="field"><span class="lbl">Insulation &amp; glass</span>
+          <div class="seg" data-key="insul"><button data-v="poor">Older</button><button data-v="avg">Average</button><button data-v="good">Good</button><button data-v="high">New build</button></div>
+          <span class="hint" id="insulHint"></span></div>
+        <div class="field"><span class="lbl">Shade from trees &amp; neighbours</span>
+          <div class="seg" data-key="shade"><button data-v="none">None</button><button data-v="some">Some</button><button data-v="heavy">Heavy</button></div></div>
+      </div>
+
+      <div class="panel">
+        <h3 style="display:flex;justify-content:space-between;align-items:center;gap:8px">Rooms
+          <span class="hint" id="areaUnit" style="text-transform:none;letter-spacing:0"></span></h3>
+        <div class="rooms-head"><span>Room</span><span>How many</span><span>Area each</span><span>Wall faces</span><span></span></div>
+        <div class="rooms" id="rooms"></div>
+        <div class="addrow">
+          <select id="addType" aria-label="Room type"></select>
+          <button class="btn small" id="addRoom" type="button">Add room</button>
+        </div>
+        <div class="field"><label for="halls">Halls, baths, stairs, closets <output id="hallsOut"></output></label><input type="range" id="halls" min="5" max="35"></div>
+        <div class="area-total" id="areaTotal"></div>
+      </div>
+
+      <div class="panel">
+        <h3 id="liveHead">How you live</h3>
+        <div class="field" id="occField"><label for="occ">People <output id="occOut"></output></label><input type="range" id="occ" min="1" max="8"></div>
+        <div id="hotelFields">
+          <div class="field"><label for="hOcc">Rooms sold, average over the year <output id="hOccOut"></output></label><input type="range" id="hOcc" min="10" max="100" step="5">
+            <span class="hint" id="hotelHint"></span></div>
+          <label class="check"><input type="checkbox" id="laundry"> Sheets and towels washed on site</label>
+        </div>
+        <div class="field"><label for="setpoint">Summer thermostat <output id="setpointOut"></output></label><input type="range" id="setpoint" min="68" max="82"></div>
+        <div class="field"><span class="lbl">Cooling system</span>
+          <div class="seg" data-key="system"><button data-v="central">Central, ducted</button><button data-v="mini">Mini-splits</button></div></div>
+        <div class="field"><label for="seer">AC efficiency (SEER2) <output id="seerOut"></output></label><input type="range" id="seer" min="13.4" max="25" step="0.2">
+          <span class="hint">13.4 is the US minimum. Inverter mini-splits reach 20–25.</span></div>
+        <div class="field"><span class="lbl">Heating</span>
+          <div class="seg" data-key="heat"><button data-v="gas">Gas / other</button><button data-v="hp">Heat pump</button><button data-v="res">Electric</button></div></div>
+        <div class="field" id="waterField"><span class="lbl">Water heater</span>
+          <div class="seg" data-key="water"><button data-v="gas">Gas</button><button data-v="elec">Electric</button><button data-v="hpwh">Heat pump</button></div></div>
+        <div class="field" id="evField"><label for="ev">Electric car <output id="evOut"></output></label><input type="range" id="ev" min="0" max="25000" step="500"></div>
+        <div class="field" id="evTimeField"><span class="lbl">Car charges</span>
+          <div class="seg" data-key="evTime"><button data-v="night">Overnight</button><button data-v="day">Daytime at home</button></div></div>
+        <label class="check" id="poolField"><input type="checkbox" id="pool"> Pool pump</label>
+        <p class="hint" id="realHint" hidden>Water heater, car and pool are entered in your appliance list (Electricity section).</p>
+        <div class="field"><label for="billKwh">Your yearly kWh from bills <span class="hint">optional</span></label>
+          <input type="number" id="billKwh" min="0" step="100" placeholder="Leave empty to estimate"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Prices</h3>
+        <div class="field"><span class="lbl">Electricity price</span>
+          <div class="seg" data-key="priceMode"><button data-v="auto">Local tariff</button><button data-v="flat">One price</button><button data-v="tiers">Steps (progressive)</button><button data-v="tou">By time of day</button></div>
+          <span class="hint" id="priceModeHint"></span></div>
+        <div class="field" id="flatField"><label for="price">Price per kWh ($) <span class="hint">optional</span></label>
+          <input type="number" id="price" min="0" step="0.005">
+          <span class="hint" id="priceHint"></span></div>
+        <div class="field" id="touField">
+          <span class="lbl">Price per kWh by time of day <output id="touCur"></output></span>
+          <div class="row2" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+            <div class="field" style="margin:0"><label for="touOff">Off-peak</label><input type="number" id="touOff" min="0"></div>
+            <div class="field" style="margin:0"><label for="touNorm">Normal</label><input type="number" id="touNorm" min="0"></div>
+            <div class="field" style="margin:0"><label for="touPeak">Peak</label><input type="number" id="touPeak" min="0"></div></div>
+          <label class="check"><input type="checkbox" id="gridCharge"> Battery may charge from the grid off-peak</label>
+          <button class="btn small" id="resetTou" type="button" style="align-self:flex-start">Reset to local business prices</button>
+          <span class="hint" id="touHint"></span></div>
+        <div class="field" id="tierField">
+          <span class="lbl">Price steps each month <output id="tierCur"></output></span>
+          <div class="tier head"><span>kWh in the month</span><span>up to</span><span id="tierPh">price/kWh</span><span></span></div>
+          <div id="tiers" style="display:flex;flex-direction:column;gap:5px"></div>
+          <div class="row2" style="margin-top:6px">
+            <div class="field" style="margin:0"><label for="tvat">Tax (VAT) %</label><input type="number" id="tvat" step="1" min="0"></div>
+            <div class="field" style="margin:0"><label for="tfx" id="tfxLbl">per $1</label><input type="number" id="tfx" step="100" min="0"></div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" id="addTier" type="button">+ Add step</button><button class="btn small" id="resetTier" type="button">Reset to local tariff</button></div>
+          <div class="stairs" id="stairs"></div>
+          <span class="hint" id="tierHint"></span></div>
+        <div class="row2 field">
+          <div class="field" style="margin:0"><label for="costW">Solar $/W installed</label><input type="number" id="costW" step="0.05" min="0"></div>
+          <div class="field" style="margin:0"><label for="costB">Battery $/kWh installed</label><input type="number" id="costB" step="10" min="0"></div>
+        </div>
+        <span class="hint" id="costHint"></span>
+      </div>
+
+      <div class="panel">
+        <details>
+          <summary style="cursor:pointer;font-weight:700;font-size:14px">Solar &amp; battery assumptions</summary>
+          <div class="field"><span class="lbl">How the utility pays for power you send back</span>
+            <div class="seg" data-key="metering"><button data-v="auto">Local rule</button><button data-v="net">Net metering 1:1</button><button data-v="bill">Export credit</button></div>
+            <span class="hint" id="meterHint"></span></div>
+          <div class="row2 field">
+            <div class="field"><label for="exportRate">Export $/kWh</label><input type="number" id="exportRate" step="0.005"></div>
+            <div class="field"><label for="panelW">Panel watts</label><input type="number" id="panelW" step="5"></div>
+          </div>
+          <div class="row2 field">
+            <div class="field"><label for="exportCap">Max export, % of output</label><input type="number" id="exportCap" step="5" min="0" max="100"></div>
+            <div class="field"></div>
+          </div>
+          <div class="row2 field">
+            <div class="field"><label for="incent">Incentives %</label><input type="number" id="incent" step="1"></div>
+            <div class="field"><label for="reserve">Backup reserve %</label><input type="number" id="reserve" step="5"></div>
+          </div>
+          <div class="row2 field">
+            <div class="field"><label for="esc">Price rise %/yr</label><input type="number" id="esc" step="0.5"></div>
+            <div class="field"><label for="disc">Discount rate %</label><input type="number" id="disc" step="0.5"></div>
+          </div>
+          <div class="row2 field">
+            <div class="field"><label for="loss">System losses %</label><input type="number" id="loss" step="1"></div>
+            <div class="field"><label for="deg">Panel ageing %/yr</label><input type="number" id="deg" step="0.1"></div>
+          </div>
+          <p class="hint" style="margin-top:12px">The US federal 30% tax credit for home-owned systems ended for systems installed after 31 Dec 2025. Add any state, utility or local rebate as a percentage.</p>
+        </details>
+      </div>
+    </aside>
+
+    <main>
+      <div class="strip" id="strip" aria-live="polite"></div>
+
+      <section class="card" id="sec-verdict">
+        <div class="sechead"><h2 id="verdictH">Is solar worth it for this house?</h2><span class="tag sun" id="verdictTag"></span><button class="btn small" id="openSheet" type="button" style="margin-left:auto">Summary for the owner</button></div>
+        <div class="vgrid" id="vgrid"></div>
+        <ul class="verdict" id="verdict"></ul>
+      </section>
+
+      <section class="card" id="sec-3d">
+        <div class="sechead"><h2>Your house in the sun</h2><span class="tag sun">Drag to turn · scroll to zoom</span></div>
+        <div class="scene-wrap" id="sceneWrap">
+          <div class="scene-hud"><div class="tm" id="hudTime"></div><div class="sub" id="hudSub"></div></div>
+          <div class="scene-key"><span><i style="background:#f2b705"></i>Solar</span><span><i style="background:#22c58b"></i>Battery</span><span><i style="background:#4b9bff"></i>Grid</span><span>More dots = more power</span></div>
+        </div>
+        <div class="timebar">
+          <div class="months" id="months"></div>
+          <div class="hourctl">
+            <button class="btn small" id="play" type="button">▶ Play day</button>
+            <input type="range" id="hour" min="0" max="23.75" step="0.25" aria-label="Time of day">
+          </div>
+        </div>
+        <div class="flowgrid" id="flowgrid"></div>
+        <p class="now" id="nowText"></p>
+      </section>
+
+      <section class="card" id="sec-day">
+        <div class="sechead"><h2>A typical day, hour by hour</h2><span class="tag sun" id="dayTag"></span></div>
+        <div class="legend" id="dayLegend"></div>
+        <div class="chart" id="dayChart"></div>
+        <h3 style="margin-top:10px">Battery level</h3>
+        <div class="chart" id="socChart"></div>
+        <p class="note">Shaded columns are night. Tap or drag on the chart to move the sun in the 3D view. The order never changes: solar runs the house first, extra solar fills the battery, the battery runs the house when the sun is gone, and the grid steps in only when the battery reaches its backup reserve.</p>
+      </section>
+
+      <section class="card" id="sec-ac">
+        <div class="sechead"><h2>Air conditioning size</h2><span class="tag cool">Cooling</span></div>
+        <div class="grid2">
+          <div>
+            <div class="big" id="acTons"></div>
+            <p style="margin:8px 0 0" id="acUnit"></p>
+            <div class="kv" id="acKv"></div>
+            <p class="note" id="orientTip"></p>
+            <p class="note" id="heatCheck"></p>
+          </div>
+          <div>
+            <h3>Where the heat comes from at the hottest hour</h3>
+            <table class="receipt" id="acReceipt"></table>
+          </div>
+        </div>
+        <h3 style="margin-top:22px">Which system to buy</h3>
+        <div class="acopt" id="acOpt"></div>
+        <p class="note" id="acRec"></p>
+        <h3 style="margin-top:22px">Room by room</h3>
+        <div class="tbl-wrap"><table class="data" id="roomTbl"></table></div>
+        <p class="note" id="roomNote"></p>
+      </section>
+
+      <section class="card" id="sec-use">
+        <div class="sechead"><h2>Where your electricity goes</h2><span class="tag cool">Before solar</span></div>
+        <div class="seg" data-key="loadMode" style="max-width:560px"><button data-v="est">Estimate from the house (new or planned)</button><button data-v="real">My appliances (existing home)</button></div>
+        <p class="note" id="loadModeNote" style="margin-top:8px"></p>
+        <div id="appBox" hidden>
+          <div class="tbl-wrap"><table class="data apps" id="appTbl"></table></div>
+          <div class="addrow" style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><select id="appType" aria-label="Appliance to add"></select><button class="btn small" id="addApp" type="button">Add appliance</button><button class="btn small" id="seedApps" type="button">Reset to a typical list</button></div>
+          <div class="legend" style="margin-top:8px"><span><i style="background:var(--s-solar)"></i>runs while the sun is up: solar can power it</span><span><i style="background:var(--s-grid)"></i>runs after dark: needs the battery or the grid</span></div>
+          <p class="note" id="appNote"></p>
+        </div>
+        <h3 style="margin-top:16px">Month by month</h3>
+        <div class="legend" id="useLegend"></div>
+        <div class="chart" id="useChart"></div>
+        <div class="tbl-wrap" style="margin-top:14px"><table class="data" id="useTbl"></table></div>
+        <p class="note" id="useNote"></p>
+      </section>
+
+      <section class="card" id="sec-solar">
+        <div class="sechead"><h2>Solar panels and battery</h2><span class="tag sun">Best value</span></div>
+        <div class="optbar">
+          <div class="t" id="optText"></div>
+          <div class="pick" role="group" aria-label="Which size to show">
+            <button class="btn" id="snapOpt" type="button" aria-pressed="true">Best value</button>
+            <button class="btn" id="snap100" type="button" aria-pressed="false" title="Enough panels for a year of use, plus a battery to run evenings on your own solar">Cover 100% of use</button>
+            <span class="custom" id="pickCustom" hidden>Your own size</span>
+          </div>
+        </div>
+        <div class="sliders">
+          <div class="field" style="margin:0"><label for="panels">Panels <output id="panelsOut"></output></label><input type="range" id="panels" min="0" max="60" value="0"></div>
+          <div class="field" style="margin:0"><label for="batt">Battery (usable) <output id="battOut"></output></label><input type="range" id="batt" min="0" max="40" step="2.5" value="0"></div>
+        </div>
+        <h3 style="margin-top:6px">How one panel turns sunlight into power</h3>
+        <div class="wf" id="wf"></div>
+        <p class="note" id="wfNote"></p>
+        <div class="tbl-wrap" style="margin-top:12px"><table class="data" id="faceTbl"></table></div>
+        <h3 style="margin-top:18px">25-year value vs number of panels <span style="text-transform:none;letter-spacing:0;font-weight:400" id="npvSub"></span></h3>
+        <div class="chart" id="npvChart"></div>
+        <p class="note">Value is in today's money: 25 years of bill savings, discounted, minus the up-front cost and one battery replacement at year 15. The top of the curve is the best-value size. Panels go on the sunniest roof face first.</p>
+        <h3 style="margin-top:22px">Where your power comes from each month</h3>
+        <div class="legend" id="srcLegend"></div>
+        <div class="chart" id="srcChart"></div>
+        <div class="minis" id="solarMinis"></div>
+      </section>
+
+      <section class="card" id="sec-batt">
+        <div class="sechead"><h2>Battery storage</h2><span class="tag sun">Savings, evenings, backup</span></div>
+        <div class="grid2">
+          <div>
+            <h3>Three ways to size it</h3>
+            <table class="receipt" id="battReceipt"></table>
+            <p class="note" id="battNote"></p>
+          </div>
+          <div>
+            <h3>Backup during an outage</h3>
+            <div class="field"><label for="ess">Essential load <output id="essOut"></output></label><input type="range" id="ess" min="0.3" max="3" step="0.1">
+              <span class="hint">Fridge, lights, Wi-Fi, a few outlets ≈ 0.5–1 kW on average.</span></div>
+            <div class="field"><label for="hours">Hours you want covered <output id="hoursOut"></output></label><input type="range" id="hours" min="2" max="48"></div>
+            <div class="minis" id="backupMinis"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="sec-method">
+        <div class="sechead"><h2>How we calculate, and how professionals do it</h2><span class="tag cool">Methods &amp; sources</span></div>
+        <p class="note" style="margin-top:0">Every number on this page comes from a published engineering method. The table names the method, says whether installers and engineers use the same one, and explains where and why we simplify.</p>
+        <div class="tbl-wrap" style="margin-top:12px"><table class="data method" id="methodTbl"></table></div>
+      </section>
+
+      <details class="panel">
+        <summary style="cursor:pointer;font-weight:700">Monthly numbers (table)</summary>
+        <div class="tbl-wrap" style="margin-top:10px"><table class="data" id="monthTbl"></table></div>
+      </details>
+
+      <footer>Climate inputs are rounded typical-year monthly values for the nearest listed city. Sun angles use your exact latitude. Prices are approximate 2025 residential averages, with non-US prices converted to USD. Use these numbers to plan and compare, then get quotes and a Manual J from a licensed installer.</footer>
+    </main>
+  </div>
+</div>
+
+<div id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="shTitle">
+  <div class="sheet-bar"><button class="btn" id="printSheet" type="button">Print or save as PDF</button><button class="btn" id="closeSheet" type="button">Close</button></div>
+  <div class="sheet-page" id="sheetPage"></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+// MODEL START
+// name, region, lat, lon, mean °F, seasonal swing °F, humid, sun-hours/day on a latitude-tilt roof, sun seasonality, price ¢/kWh (USD)
+const RAW = [
+["Phoenix","AZ",33.45,-112.07,75.5,19.5,0,6.5,.18,15],["Tucson","AZ",32.22,-110.97,70.5,16.5,0,6.5,.15,15],
+["Las Vegas","NV",36.17,-115.14,70,22,0,6.4,.2,15.5],["Los Angeles","CA",34.05,-118.24,66,8,0,5.6,.2,32],
+["San Diego","CA",32.72,-117.16,64.5,7.5,0,5.6,.18,32],["San Francisco","CA",37.77,-122.42,58,6,0,5.3,.3,32],
+["Sacramento","CA",38.58,-121.49,62,15.5,0,5.6,.35,32],["Fresno","CA",36.74,-119.79,65,18.5,0,5.8,.35,32],
+["Seattle","WA",47.61,-122.33,53,12.5,0,3.7,.55,13],["Portland","OR",45.52,-122.68,54,13,0,4.0,.55,15],
+["Boise","ID",43.62,-116.2,52,21,0,5.0,.45,11.5],["Salt Lake City","UT",40.76,-111.89,53,23,0,5.3,.4,12],
+["Denver","CO",39.74,-104.99,51.5,21.5,0,5.5,.25,15.5],["Albuquerque","NM",35.08,-106.65,57.5,20.5,0,6.3,.2,15],
+["Dallas","TX",32.78,-96.8,66,20,1,5.2,.25,15.5],["Houston","TX",29.76,-95.37,70,15.5,1,4.7,.22,15.5],
+["Austin","TX",30.27,-97.74,69,17,1,5.1,.22,15.5],["San Antonio","TX",29.42,-98.49,70,16,1,5.2,.22,15.5],
+["Oklahoma City","OK",35.47,-97.52,61,21.5,1,5.3,.25,13],["Kansas City","MO",39.1,-94.58,55,25,1,4.8,.3,13.5],
+["St. Louis","MO",38.63,-90.2,57,24,1,4.7,.32,13.5],["Minneapolis","MN",44.98,-93.27,46,29,1,4.5,.38,15.5],
+["Chicago","IL",41.88,-87.63,50,25,1,4.3,.4,17],["Detroit","MI",42.33,-83.05,50,23.5,1,4.2,.42,19.5],
+["Columbus","OH",39.96,-83,53,22,1,4.2,.42,16.5],["Cleveland","OH",41.5,-81.69,51,22,1,4.0,.45,16.5],
+["Pittsburgh","PA",40.44,-80,52,21.5,1,4.0,.45,18],["Philadelphia","PA",39.95,-75.17,56,21.5,1,4.5,.35,18],
+["New York","NY",40.71,-74.01,56,22,1,4.4,.35,25],["Boston","MA",42.36,-71.06,52,22,1,4.4,.38,30],
+["Washington","DC",38.91,-77.04,58.5,21.5,1,4.5,.35,18],["Baltimore","MD",39.29,-76.61,57,21.5,1,4.5,.35,18],
+["Charlotte","NC",35.23,-80.84,61,18.5,1,4.9,.28,14],["Raleigh","NC",35.78,-78.64,60.5,18.5,1,4.8,.28,14],
+["Atlanta","GA",33.75,-84.39,62.5,18,1,4.9,.27,14.5],["Nashville","TN",36.16,-86.78,60,20,1,4.6,.32,12.5],
+["Memphis","TN",35.15,-90.05,63,20,1,4.8,.3,12.5],["New Orleans","LA",29.95,-90.07,69,15,1,4.9,.22,12],
+["Miami","FL",25.76,-80.19,77,8,1,5.2,.12,15.5],["Tampa","FL",27.95,-82.46,74,11,1,5.4,.12,15.5],
+["Orlando","FL",28.54,-81.38,73.5,11,1,5.3,.12,15.5],["Jacksonville","FL",30.33,-81.66,69,14,1,5.0,.18,15.5],
+["Honolulu","HI",21.31,-157.86,78,3.5,1,5.6,.15,41],["Anchorage","AK",61.22,-149.9,37,22,0,3.0,.75,25],
+["Toronto","Canada",43.65,-79.38,48,23.5,1,3.9,.45,12],["Vancouver","Canada",49.28,-123.12,51.5,11.5,0,3.5,.55,10],
+["Montreal","Canada",45.5,-73.57,45.5,26,1,3.9,.4,7],["Mexico City","Mexico",19.43,-99.13,61.5,4.5,0,5.4,-.1,8],
+["Paris","France",48.86,2.35,54.5,13.5,0,3.3,.6,28],["Lyon","France",45.76,4.84,54.5,18,0,3.9,.5,28],
+["Marseille","France",43.3,5.37,60,15.5,0,4.9,.35,28],["Nice","France",43.7,7.27,60.5,14.5,0,4.8,.35,28],
+["Bordeaux","France",44.84,-0.58,56,14,0,3.9,.45,28],["Toulouse","France",43.6,1.44,56.5,15,0,4.1,.4,28],
+["Nantes","France",47.22,-1.55,54.5,12.5,0,3.6,.5,28],["Lille","France",50.63,3.06,51.5,12.5,0,3.0,.6,28],
+["Strasbourg","France",48.57,7.75,52,17.5,0,3.3,.6,28],["London","UK",51.51,-0.13,52,12,0,2.9,.6,33],
+["Berlin","Germany",52.52,13.4,50.5,17,0,3.0,.65,40],["Madrid","Spain",40.42,-3.7,59.5,19,0,5.2,.3,25],
+["Rome","Italy",41.9,12.5,61.5,15.5,0,4.7,.35,30],["Dubai","UAE",25.2,55.27,82.5,15.5,1,6.0,.1,8],
+["Cairo","Egypt",30.04,31.24,72.5,15,0,6.1,.15,4],["Delhi","India",28.61,77.21,77.5,17,1,5.5,-.1,8],
+["Mumbai","India",19.08,72.88,81.5,4.5,1,5.0,-.3,10],["Bangkok","Thailand",13.76,100.5,83,2.5,1,4.9,-.1,13],
+["Singapore","Singapore",1.35,103.82,81.5,1,1,4.4,0,24],["Manila","Philippines",14.6,120.98,81,2.5,1,4.9,-.1,20],
+["Hong Kong","China",22.32,114.17,74.5,10.5,1,3.9,.1,15],["Shanghai","China",31.23,121.47,62.5,19,1,3.8,.2,8],
+["Tokyo","Japan",35.68,139.69,61,18,1,3.9,.1,21],["Seoul","South Korea",37.57,126.98,55,25,1,4.0,.2,11],
+["Hanoi","Vietnam",21.03,105.85,75,11.5,1,3.5,.35,11],["Hai Phong","Vietnam",20.85,106.68,73.5,11,1,3.6,.35,11],
+["Hue","Vietnam",16.46,107.59,76.5,8.5,1,4.2,.35,11],["Da Nang","Vietnam",16.05,108.2,77.5,7.5,1,4.7,.2,11],
+["Nha Trang","Vietnam",12.24,109.19,80,4,1,5.5,.1,11],["Da Lat","Vietnam",11.94,108.44,64,2.5,1,4.8,-.1,11],
+["Ho Chi Minh City","Vietnam",10.82,106.63,82,2,1,4.8,-.15,11],["Can Tho","Vietnam",10.05,105.75,81,2,1,4.9,-.15,11],
+["Sydney","Australia",-33.87,151.21,65,9,1,4.9,.25,25],["Melbourne","Australia",-37.81,144.96,59.5,9,0,4.2,.4,22],
+["Sao Paulo","Brazil",-23.55,-46.63,67,5.5,1,4.6,.1,17],["Johannesburg","South Africa",-26.2,28.05,61,9,0,5.9,.05,16]
+];
+const CITIES = RAW.map(r=>({name:r[0],region:r[1],lat:r[2],lon:r[3],t:r[4],ta:r[5],humid:!!r[6],psh:r[7],pa:r[8],price:r[9]/100,label:r[0]+", "+r[1]}));
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const DAYS=[31,28,31,30,31,30,31,31,30,31,30,31];
+const RAD=Math.PI/180, GSC=1367, KLEIN=[17,47,75,105,135,162,198,228,258,288,318,344];
+// ASHRAE fraction of daily range below the daily maximum, by clock hour 0..23
+const PCT=[.82,.87,.92,.96,.99,1,.98,.93,.84,.71,.56,.39,.23,.11,.03,0,.03,.10,.21,.34,.47,.58,.68,.76];
+function norm(a){const s=a.reduce((x,y)=>x+y,0);return a.map(v=>v/s)}
+const W_GUEST=norm([.5,.4,.3,.3,.3,.5,1.1,1.3,1,.6,.4,.4,.4,.4,.4,.5,.7,1,1.4,1.6,1.6,1.5,1.2,.8]);
+const W_LAUNDRY=norm([0,0,0,0,0,0,0,0,.6,1,1,1,1,1,1,.8,.4,0,0,0,0,0,0,0]);
+const W_LIFT=norm([.1,.05,.05,.05,.05,.2,.6,1,1,.8,.7,.8,1,.8,.7,.7,.8,1,1.1,1,.9,.7,.4,.2]);
+const W_BASE=norm([.6,.5,.5,.5,.5,.6,.8,1,1,.9,.85,.85,.85,.85,.9,1,1.15,1.35,1.5,1.55,1.45,1.25,1,.8]);
+const W_WATER=norm([.2,.1,.1,.1,.2,.6,1.6,1.8,1.4,1,.7,.6,.5,.5,.5,.6,.8,1.1,1.5,1.6,1.4,1,.6,.3]);
+const W_EVN=norm([1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1]);
+const W_EVD=norm([0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0]);
+const W_POOL=norm([0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0]);
+const W_OCC=[1,1,1,1,1,1,1,.8,.5,.4,.4,.4,.4,.4,.4,.5,.7,.9,1,1,1,1,1,1];
+const FAC=["front","back","s1","s2"];
+const INS={poor:{wall:.2,ceil:.1,win:.9,shgc:.7,ach:.8,slab:.73},avg:{wall:.09,ceil:.05,win:.5,shgc:.6,ach:.5,slab:.6},
+  good:{wall:.065,ceil:.033,win:.32,shgc:.35,ach:.35,slab:.5},high:{wall:.05,ceil:.026,win:.27,shgc:.25,ach:.2,slab:.4}};
+const ALPHA={dark:.9,medium:.7,light:.45,white:.25};
+const SHADE_WIN={none:.9,some:.7,heavy:.5}, SHADE_PV={none:1,some:.93,heavy:.8};
+const WFR={few:.08,avg:.12,many:.2};
+const TYPES={living:{n:"Living room",win:1.3,gain:300,ppl:.6},kitchen:{n:"Kitchen",win:.8,gain:1200,ppl:.2},dining:{n:"Dining room",win:1,gain:0,ppl:.2},
+  bedroom:{n:"Bedroom",win:1,gain:0,ppl:.25},office:{n:"Office",win:1,gain:300,ppl:0},bath:{n:"Bathroom",win:.4,gain:0,ppl:0},other:{n:"Other room",win:1,gain:0,ppl:0},
+  guest:{n:"Guest room",win:1,gain:250,pp:2,hotel:1},lobby:{n:"Lobby / reception",win:1.5,gain:500,pp:4},restaurant:{n:"Breakfast room / restaurant",win:1.2,gain:1500,pp:10}};
+// hotel guest rooms: share of the room's AC and plug use by hour (guests are mostly in at night)
+const W_GUESTIN=[1,1,1,1,1,1,.9,.6,.3,.2,.2,.2,.25,.3,.3,.35,.5,.7,.9,1,1,1,1,1];
+// elevators (VDI 4707 / ISO 25745-2): running energy per kg of rated load per metre travelled, and standby draw
+const LIFT={modern:{n:"Modern (gearless, inverter, sleep mode)",e:0.8,sb:50},std:{n:"Standard traction",e:1.3,sb:150},hyd:{n:"Hydraulic",e:2.8,sb:120}};
+const HEADS=[6000,9000,12000,18000,24000,30000,36000];
+const HP={6000:"0.75",9000:"1",12000:"1.5",18000:"2",24000:"2.5",30000:"3",36000:"4"};
+// appliance presets: name, watts while running (average draw for cycling ones), hours a day, start hour, kind (sets the seasonal pattern)
+const APPS={ac9:{n:"Air conditioner 9,000 BTU (1 HP)",w:650,h:8,s:21,kind:"cool",btu:9000},ac12:{n:"Air conditioner 12,000 BTU (1.5 HP)",w:950,h:8,s:21,kind:"cool",btu:12000},
+  ac18:{n:"Air conditioner 18,000 BTU (2 HP)",w:1450,h:6,s:17,kind:"cool",btu:18000},ac24:{n:"Air conditioner 24,000 BTU (2.5 HP)",w:1950,h:6,s:17,kind:"cool",btu:24000},
+  central:{n:"Central AC (qty = tons)",w:1050,h:8,s:12,kind:"cool",btu:12000},fan:{n:"Fan",w:50,h:8,s:21,kind:"cool"},
+  fridge:{n:"Refrigerator (average draw)",w:60,h:24,s:0},freezer:{n:"Freezer (average draw)",w:40,h:24,s:0},wash:{n:"Washing machine",w:500,h:1,s:9},
+  dryer:{n:"Clothes dryer",w:2500,h:1,s:10},dish:{n:"Dishwasher",w:1200,h:1,s:20},tv:{n:"TV",w:100,h:5,s:18},lights:{n:"Lights (LED, whole house)",w:150,h:6,s:17},
+  wh:{n:"Electric water heater",w:2500,h:1,s:18,kind:"water"},rice:{n:"Rice cooker",w:700,h:1,s:17},cook:{n:"Induction / electric hob",w:1800,h:1,s:17.5},
+  oven:{n:"Oven",w:2000,h:0.5,s:18},micro:{n:"Microwave",w:1000,h:0.25,s:12},kettle:{n:"Electric kettle",w:1800,h:0.25,s:6},pc:{n:"Computer / laptop",w:100,h:8,s:9},
+  router:{n:"Wi-Fi, chargers, standby",w:30,h:24,s:0},pump:{n:"Water pump",w:750,h:1,s:6},
+  lift:{n:"Elevator (average incl. standby)",w:220,h:24,s:0,kind:"lift"},minibar:{n:"Minibar fridge (average draw)",w:30,h:24,s:0},
+  washc:{n:"Commercial washer / dryer",w:3000,h:3,s:9,kind:"laundry"},corr:{n:"Corridor & stair lights",w:200,h:24,s:0},iron:{n:"Iron",w:1200,h:0.5,s:7},
+  heater:{n:"Electric heater",w:1500,h:4,s:18,kind:"heat"},ev:{n:"Electric car charger",w:7000,h:2,s:22,kind:"ev"},pool:{n:"Pool pump",w:1100,h:6,s:10,kind:"pool"},other:{n:"Other",w:100,h:1,s:12}};
+// share of each hour an appliance runs, for a run of d hours starting at hour s
+function winW(s,d){const w=new Array(24).fill(0);let t=+s||0,left=clamp(+d||0,0,24);while(left>1e-9){const fl=Math.floor(t),step=Math.min(left,fl+1-t);w[((fl%24)+24)%24]+=step;t+=step;left-=step}return w}
+const UNITS=[1.5,2,2.5,3,3.5,4,5];
+const PANEL={w:1.134,h:1.722}; // metres, typical 430 W module
+const sum=a=>{let s=0;for(const v of a)s+=v;return s};
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+function phi(z){return Math.exp(-z*z/2)/Math.sqrt(2*Math.PI)}
+function Phi(z){const t=1/(1+0.2316419*Math.abs(z));const p=phi(z)*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return z>0?1-p:p}
+function expPos(mu,sd){const z=mu/sd;return sd*phi(z)+mu*Phi(z)}
+function haversine(a,b,c,d){const R=6371,r=RAD;const x=Math.sin((c-a)*r/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin((d-b)*r/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
+
+// ---- sun geometry (Duffie & Beckman) ----
+function decl(n){return 23.45*RAD*Math.sin(2*Math.PI*(284+n)/365)}
+function sunVec(latR,d,hour){const w=15*RAD*(hour-12);
+  return {up:Math.sin(latR)*Math.sin(d)+Math.cos(latR)*Math.cos(d)*Math.cos(w),east:-Math.cos(d)*Math.sin(w),north:Math.cos(latR)*Math.sin(d)-Math.sin(latR)*Math.cos(d)*Math.cos(w)}}
+function erbs(kt){return kt<=0.22?1-0.09*kt:kt<=0.8?0.9511-0.1604*kt+4.388*kt**2-16.638*kt**3+12.336*kt**4:0.165}
+// hourly irradiance W/m² on a surface (tilt°, compass azimuth°) for month m's mean day; isotropic sky (Liu–Jordan)
+function irr(latR,m,kt,tilt,az){
+  const n=KLEIN[m],d=decl(n),E0=1+0.033*Math.cos(2*Math.PI*n/365);
+  const t=tilt*RAD,a=az*RAD,ne=Math.sin(t)*Math.sin(a),nn=Math.sin(t)*Math.cos(a),nu=Math.cos(t);
+  const out=new Array(24),fd=erbs(kt);
+  for(let h=0;h<24;h++){const s=sunVec(latR,d,h+0.5);if(s.up<=0.02){out[h]=0;continue}
+    const ghi=kt*GSC*E0*s.up,dhi=ghi*fd,bn=(ghi-dhi)/s.up;
+    const ci=Math.max(0,ne*s.east+nn*s.north+nu*s.up);
+    out[h]=bn*ci+dhi*(1+nu)/2+ghi*0.2*(1-nu)/2}
+  return out}
+function calibrateKt(st){
+  const latR=st.lat*RAD,hem=st.lat<0?-1:1,tilt=Math.abs(st.lat),az=st.lat<0?0:180;
+  return MON.map((_,m)=>{const target=st.psh*(1+st.pa*hem*Math.cos(2*Math.PI*(m-5.5)/12))*1000;
+    let lo=0.05,hi=0.85;for(let i=0;i<22;i++){const k=(lo+hi)/2;if(sum(irr(latR,m,k,tilt,az))<target)lo=k;else hi=k}
+    return (lo+hi)/2})}
+function climateFor(st){
+  const hem=st.lat<0?-1:1;
+  const T=MON.map((_,m)=>st.t+st.ta*hem*Math.cos(2*Math.PI*(m-6.3)/12));
+  const kt=calibrateKt(st);
+  const DR=st.humid?15:(st.ta>12&&st.psh>5.5?26:19);
+  let hot=0,cold=0;T.forEach((t,m)=>{if(t>T[hot])hot=m;if(t<T[cold])cold=m});
+  const Tdes=T[hot]+DR/2+0.15*st.ta, Twin=T[cold]-DR/2-0.6*st.ta;
+  return {T,kt,DR,hot,cold,Tdes,Twin}}
+const hourT=(Tmean,DR)=>PCT.map(f=>Tmean+DR/2-DR*f);
+function compassName(az){return ["N","NE","E","SE","S","SW","W","NW"][Math.round(((az%360)+360)%360/45)%8]}
+
+// ---- house geometry ----
+const rn=r=>Math.max(1,Math.round(+r.n||1));
+function geom(p){
+  const roomsArea=sum(p.rooms.map(r=>(+r.area||0)*rn(r)));
+  const sqft=Math.max(300,roomsArea/(1-p.halls/100));
+  const fp=sqft/p.stories, D=Math.sqrt(fp/p.aspect), W=p.aspect*D, ceil=+p.ceil, Hw=p.stories*(ceil+1);
+  const A=p.front, f={};
+  const az={front:A,back:(A+180)%360,s1:(A+90)%360,s2:(A+270)%360}, len={front:W,back:W,s1:D,s2:D};
+  const wfr=WFR[p.windows], raw={front:0,back:0,s1:0,s2:0};
+  p.rooms.forEach(r=>{if(r.facade!=="int"&&raw[r.facade]!==undefined)raw[r.facade]+=(+r.area||0)*rn(r)*wfr*TYPES[r.type].win});
+  let winTotal=0;
+  FAC.forEach(k=>{const wall=len[k]*Hw, win=Math.min(raw[k],0.6*wall);winTotal+=win;
+    f[k]={az:az[k],len:len[k],wall,win,opq:wall-win,scale:raw[k]>0?win/raw[k]:1}});
+  const ftm=0.3048, Wm=W*ftm, Dm=D*ftm, pr=p.pitch*RAD, faces=[];
+  const slopeCap=(along,slope,top)=>{const cols=Math.max(0,Math.floor((along-1.0)/(PANEL.w+0.02))),rows=Math.max(0,Math.floor((slope-top-0.3)/(PANEL.h+0.02)));return {cols,rows,cap:cols*rows}};
+  if(p.roof==="gable"){const Ls=Dm/2/Math.cos(pr);
+    faces.push({key:"front",name:"Front slope",az:az.front,tilt:p.pitch,...slopeCap(Wm,Ls,0.46)});
+    faces.push({key:"back",name:"Back slope",az:az.back,tilt:p.pitch,...slopeCap(Wm,Ls,0.46)})}
+  else if(p.roof==="shed"){const Ls=Dm/Math.cos(pr);faces.push({key:"shed",name:"Roof slope",az:az.front,tilt:p.pitch,...slopeCap(Wm,Ls,0.3)})}
+  else{const eq=p.lat<0?0:180;let best="front",bd=1e9;FAC.forEach(k=>{const d=Math.abs(((az[k]-eq+540)%360)-180);if(d<bd){bd=d;best=k}});
+    const along=(best==="front"||best==="back")?Wm:Dm, depth=(best==="front"||best==="back")?Dm:Wm, pitchRow=PANEL.h*Math.cos(10*RAD)+0.6;
+    const cols=Math.max(0,Math.floor((along-2)/(PANEL.w+0.02))),rows=Math.max(0,Math.floor((depth-2+0.6)/pitchRow));
+    faces.push({key:"flat",dir:best,name:"Flat roof (10° racks)",az:az[best],tilt:10,cols,rows,cap:cols*rows})}
+  const ru=clamp(+p.roofUse||100,10,100)/100;faces.forEach(f=>{f.cap=Math.floor(f.cap*ru)});
+  const thermRoof=p.roof==="gable"?[[p.pitch,az.front],[p.pitch,az.back]]:p.roof==="shed"?[[p.pitch,az.front]]:[[0,0]];
+  return {sqft,fp,W,D,Hw,ceil,vol:sqft*ceil,f,winTotal,faces,thermRoof,Wm,Dm,Hm:Hw*ftm,roomsArea}}
+
+// ---- the whole model ----
+// local market defaults: installed $/W, battery $/kWh, how exports are paid, export $/kWh
+const US_STATES=new Set(["AZ","NV","CA","WA","OR","ID","UT","CO","NM","TX","OK","MO","MN","IL","MI","OH","PA","NY","MA","DC","MD","NC","GA","TN","LA","FL","HI","AK"]);
+// Vietnam (Oct 2026): on-grid rooftop ≈ 11–12 million ₫/kWp installed; LFP battery + hybrid inverter ≈ 6 million ₫/kWh; surplus bought at last year's
+// average market price (≈1,100 ₫/kWh) and capped at 50% of output (Decree 58/2025, amended by Decree 243/2026); anything above the cap is curtailed.
+const REGION={Vietnam:[0.45,230,"bill",0.042,"Decree 58/2025 as amended by Decree 243/2026: surplus sold at last year's average market price (≈1,100 ₫/kWh), at most 50% of what the panels produce. Above that it earns nothing",50],France:[1.8,750,"bill",0.045,"EDF OA surplus buy-back"],
+  Germany:[1.6,750,"bill",0.085,"EEG feed-in tariff"],UK:[1.9,750,"bill",0.06,"Smart Export Guarantee"],Spain:[1.3,700,"bill",0.06,"compensación de excedentes"],Italy:[1.5,700,"bill",0.07,"surplus sale to GSE"],
+  Australia:[1.0,700,"bill",0.04,"retailer feed-in tariff"],Canada:[2.5,950,"net",0.04,"net metering"],Mexico:[1.0,600,"net",0.03,"net metering (medición neta)"],
+  India:[0.6,400,"net",0.04,"net metering"],China:[0.6,350,"bill",0.05,"grid buy-back"],Thailand:[0.8,450,"bill",0.06,"surplus buy-back"],Singapore:[1.3,700,"bill",0.15,"SP Group credit"],
+  Philippines:[0.9,500,"net",0.08,"net metering"],Japan:[2.0,900,"bill",0.1,"FIT buy-back"],"South Korea":[1.3,700,"net",0.06,"net metering"],UAE:[0.9,600,"net",0.05,"net metering"],
+  Egypt:[0.7,500,"net",0.03,"net metering"],Brazil:[0.9,600,"net",0.05,"compensação (net metering)"],"South Africa":[0.9,550,"bill",0.05,"municipal feed-in"]};
+function regionDefaults(st){const r=US_STATES.has(st.region)?[2.75,1000,"net",0.06,"net metering (most US utilities)"]:REGION[st.region]||[1.2,700,"bill",0.03,"export credit"];
+  return {costW:r[0],costB:r[1],metering:r[2],exportRate:r[3],rule:r[4],exportCap:r[5]==null?100:r[5]}}
+// progressive (stepped) tariffs: each step = [top of the step in kWh per month (null = everything above), price per kWh in local currency]
+const TARIFF={Vietnam:{cur:"₫",fx:26000,vat:10,tiers:[[50,1984],[100,2050],[200,2380],[300,2998],[400,3350],[null,3460]],src:"EVN residential tariff in force since 10 May 2025, plus 10% VAT"}};
+// business time-of-day tariffs: price per kWh in local currency for off-peak / normal / peak hours
+const TOU={Vietnam:{cur:"₫",fx:26000,vat:10,off:1918,norm:3152,peak:5422,src:"EVN business tariff below 6 kV (Decision 1279/QĐ-BCT, from 10 May 2025) with the time bands of Decision 963/QĐ-BCT (22 Apr 2026): peak 17:30–22:30 Mon–Sat, off-peak 0:00–6:00, normal the rest; plus 10% VAT"}};
+function touFor(p,st){
+  const want=p.priceMode==="tou"||(p.priceMode==="auto"&&p.bldg==="hotel"&&TOU[st.region]);if(!want)return null;
+  const b=TOU[st.region]||(()=>{const f=+p.price>0?+p.price:st.price;return {cur:"$",fx:1,vat:0,off:+(f*.6).toFixed(3),norm:f,peak:+(f*1.7).toFixed(3),src:"Example bands from your average price (×0.6 off-peak, ×1.7 peak); type your utility's prices"}})();
+  return {...b,...(p.tou||{})}}
+const ovl=(a,b,c,d)=>Math.max(0,Math.min(b,d)-Math.max(a,c));
+// average-day price for each hour in USD: peak applies Mon–Sat only (6 of 7 days)
+function touHourly(U){const k=(1+(+U.vat||0)/100)/(+U.fx||1);return Array.from({length:24},(_,h)=>{const off=ovl(h,h+1,0,6),pk=ovl(h,h+1,17.5,22.5)*6/7;return (off*U.off+pk*U.peak+(1-off-pk)*U.norm)*k})}
+function tariffFor(p,st){
+  if(p.priceMode==="flat"||touFor(p,st))return null;
+  if(p.priceMode==="tiers")return p.tiers||TARIFF[st.region]||{cur:"$",fx:1,vat:0,tiers:[[null,+p.price>0?+p.price:st.price]]};
+  return TARIFF[st.region]||null}
+// monthly bill in USD for k kWh on a stepped tariff
+function tierBill(T,k){let left=Math.max(0,k),prev=0,s=0;
+  for(const [up,pr] of T.tiers){const span=up==null?left:Math.min(left,Math.max(0,up-prev));s+=span*pr;left-=span;if(up!=null)prev=up;if(left<=0)break}
+  return s*(1+(+T.vat||0)/100)/(+T.fx||1)}
+function tierAt(T,k){let prev=0;for(let i=0;i<T.tiers.length;i++){const up=T.tiers[i][0];if(up==null||k<=up)return i;prev=up}return T.tiers.length-1}
+function stationFor(p){return CITIES.find(c=>c.label===p.cityLabel)||CITIES.find(c=>c.name==="Austin")}
+function model(p){
+  const st=stationFor(p), lat=p.coord?p.coord.lat:st.lat, latR=lat*RAD;
+  const cl=climateFor(st), g=geom({...p,lat}), ins=INS[p.insul];
+  const hotel=p.bldg==="hotel",gN=sum(p.rooms.filter(r=>TYPES[r.type].hotel).map(rn)),occR=clamp(+p.hOcc||0,0,100)/100;
+  const staff=hotel?Math.ceil(gN/8)+1:0,occ=hotel?Math.max(1,gN*occR*1.8+staff):p.occ, duct=p.system==="central"?1.1:1, humid=st.humid;
+  const UAwall=sum(FAC.map(k=>ins.wall*g.f[k].opq)), UAwin=ins.win*g.winTotal, UAceil=ins.ceil*g.fp;
+  const cfm=g.vol*ins.ach/60, UAinf=1.08*cfm, UAenv=UAwall+UAwin+UAceil, UAc=UAenv+UAinf;
+  const UAh=UAenv+UAinf*1.3+2*(g.W+g.D)*ins.slab;
+  const alphaR=ALPHA[p.roofColor], attic=p.roof==="flat"?1:0.55, shW=SHADE_WIN[p.shade], aW=0.6, ho=3;
+  const baseYr=2200+900*occ+0.6*g.sqft;
+  function gains(m,kt){
+    const I={};FAC.forEach(k=>I[k]=irr(latR,m,kt,90,g.f[k].az));
+    const R=g.thermRoof.map(([t,a])=>irr(latR,m,kt,t,a));
+    const roofI=R[0].map((_,h)=>sum(R.map(r=>r[h]))/R.length);
+    const win=[],opq=[],roof=[],intl=[];
+    for(let h=0;h<24;h++){let w=0,o=0;
+      FAC.forEach(k=>{const ib=I[k][h]*0.317;w+=g.f[k].win*ins.shgc*shW*ib;o+=ins.wall*g.f[k].opq*aW*ib/ho});
+      win.push(w);opq.push(o);roof.push(UAceil*attic*alphaR*roofI[h]*0.317/ho);
+      intl.push(230*occ*W_OCC[h]+baseYr/365*W_BASE[h]*3412*0.8)}
+    return {I,roofI,win,opq,roof,intl}}
+  const lag=a=>a.map((v,h)=>0.5*v+0.3*a[(h+23)%24]+0.2*a[(h+22)%24]);
+  // design cooling: 75°F inside, outdoor design day, clear sky
+  const md=cl.hot, ktD=Math.max(cl.kt[md],0.62), GD=gains(md,ktD), Td=hourT(cl.Tdes-cl.DR/2,cl.DR);
+  const wD=lag(GD.win),oD=lag(GD.opq),rD=lag(GD.roof);
+  let peak=-1,ph=15;for(let h=8;h<22;h++){const q=UAc*(Td[h]-75)+wD[h]+oD[h]+rD[h]+230*occ+1200;if(q>peak){peak=q;ph=h}}
+  const dT=Td[ph]-75, latent=0.68*cfm*(humid?35:5)+200*occ;
+  const comp=[
+    ["Walls (heat soaking through)",UAwall*dT,"cool"],["Walls (sun on the outside)",oD[ph],"sun"],
+    ["Roof & ceiling"+(p.roof==="flat"?" (flat, no attic)":" (through the attic)"),UAceil*dT+rD[ph],"sun"],
+    ["Windows (heat through the glass)",UAwin*dT,"cool"],["Windows (direct sunshine)",wD[ph],"sun"],
+    ["Outside air leaking in",UAinf*dT,"cool"],["People, cooking, electronics",230*occ+1200,"cool"],
+    ["Humidity removal (latent)",latent,"cool"]];
+  const subtotal=sum(comp.map(c=>c[1]));
+  if(duct>1)comp.push(["Duct losses (10%)",subtotal*(duct-1),"cool"]);
+  const btu=subtotal*duct, need=btu/12000;
+  let systems=1,unit=UNITS.find(u=>u>=need*0.95);
+  if(!unit){systems=Math.ceil(need*0.95/5);unit=UNITS.find(u=>u>=need*0.95/systems)||5}
+  const minHead=US_STATES.has(st.region)?6000:9000; // 6,000 BTU heads are rare outside the US
+  const onFacade={};FAC.forEach(k=>onFacade[k]=sum(p.rooms.filter(r=>r.facade===k).map(r=>(+r.area||0)*rn(r)))||1);
+  const rooms=p.rooms.map(r=>{const a=+r.area||0,sh=a/g.sqft,T=TYPES[r.type];let best=0,bh=15;
+    for(let h=8;h<22;h++){const dt=Td[h]-75;let q=(UAceil*dt+rD[h])*sh+UAinf*dt*sh+T.gain+230*(T.pp!=null?T.pp:occ*T.ppl);
+      if(r.facade!=="int"){const k=r.facade,fs=a/onFacade[k],wa=a*WFR[p.windows]*T.win*g.f[k].scale,ib=GD.I[k][h]*0.317;
+        q+=ins.wall*g.f[k].opq*fs*(dt+aW*ib/ho)+wa*(ins.win*dt+ins.shgc*shW*ib)}
+      if(q>best){best=q;bh=h}}
+    best+=latent*sh;return {...r,n:rn(r),load:best,hour:bh,head:HEADS.find(x=>x>=minHead&&x>=best*0.95)||36000}});
+  const heatDesign=UAh*(70-cl.Twin)*duct;
+  const capAt=(T)=>T>=47?1:Math.max(0.35,1-(p.seer>=18?0.009:0.016)*(47-T));
+  const cop=p.heat==="hp"?clamp(2.2+0.03*(cl.T[cl.cold]-20),1.8,3.4):1;
+  const L={cool:[],heat:[],home:[],water:[],laundry:[],lift:[],pump:[],ev:[],pool:[]};
+  // hotel: guest rooms are cooled only when occupied (mostly at night); corridors are not cooled
+  const gArea=sum(p.rooms.filter(r=>TYPES[r.type].hotel).map(r=>(+r.area||0)*rn(r))),cArea=g.roomsArea-gArea,corr=g.sqft-g.roomsArea;
+  const gs=gArea/g.sqft,cs=cArea/g.sqft,coolF=hotel?cs+gs*occR:1,gw=W_GUESTIN.map(v=>v/(sum(W_GUESTIN)/24));
+  const m2=x=>x*0.0929;
+  const hotelPlug=hotel?gN*(0.6+occR*2.0):0,commonDay=hotel?m2(cArea)*12*14/1000+m2(corr)*3*24/1000:0; // kWh/day
+  const whDay=p.water==="gas"?0:(hotel?gN*occR*2.6:0)/(p.water==="hpwh"?3:1),laundryDay=hotel&&p.laundry?gN*occR*1.5:0;
+  const waterM3=hotel?occ*0.2:p.occ*0.15,headM=p.stories*3.2+5,pumpDay=(hotel||p.stories>=3)?waterM3*headM*9.81/3600/0.45:0;
+  const LT=LIFT[p.liftType]||LIFT.std,lifts=Math.max(0,Math.round(+p.lifts||0)),liftKg=hotel?630:320,trips=lifts?(hotel?gN*occR*6+40:p.occ*6)/lifts:0;
+  const liftTravel=Math.max(0,(p.stories-1)*3.2)*0.5,liftRun=lifts*trips*LT.e*liftKg*liftTravel/1e6,liftSb=lifts*LT.sb*24/1000;
+  const extra={hotelPlug,commonDay,whDay,laundryDay,waterM3,headM,pumpDay,lifts,liftKg,trips,liftTravel,liftRun,liftSb,LT,gN,occR,staff,gArea,cArea,corr,coolF};
+  const warm=cl.T.map(t=>Math.max(0,t-55)),wsum=sum(warm)||1;
+  const whYr=hotel?whDay*365:p.water==="gas"?0:(600+550*occ)/(p.water==="hpwh"?3:1);
+  const cdd=[],hdd=[];
+  for(let m=0;m<12;m++){
+    const G=gains(m,cl.kt[m]),Th=hourT(cl.T[m],cl.DR);
+    const sol=lag(G.win.map((v,h)=>v+G.opq[h]+G.roof[h]));
+    const Gavg=sum(sol)/24+sum(G.intl)/24;
+    const tbc=Math.max(p.setpoint-Gavg/UAc,p.setpoint-14), tbh=68-0.8*Gavg/UAh;
+    const c=DAYS[m]*expPos(cl.T[m]-tbc,7), hd=DAYS[m]*expPos(tbh-cl.T[m],7);cdd.push(c);hdd.push(hd);
+    const coolDay=UAc*24*c*(humid?1.2:1.05)*duct/(p.seer*1000)/DAYS[m]*coolF;
+    const heatDay=p.heat==="gas"?0:UAh*24*hd*duct/(3412*cop)/DAYS[m];
+    let qc=Th.map((t,h)=>Math.max(0,UAc*(t-p.setpoint)+sol[h]+G.intl[h])),sc=sum(qc);
+    if(sc<=0){const mn=Math.min(...Th);qc=Th.map(t=>Math.max(0.01,t-mn));sc=sum(qc)}
+    let qh=Th.map((t,h)=>Math.max(0,UAh*(68-t)-0.8*(sol[h]+G.intl[h]))),sh=sum(qh);
+    if(sh<=0){const mx=Math.max(...Th);qh=Th.map(t=>Math.max(0.01,mx-t));sh=sum(qh)}
+    if(hotel){const wq=qc.map((v,h)=>v*(cs+gs*occR*gw[h]));qc=wq;sc=sum(wq)||1}
+    L.cool.push(qc.map(v=>coolDay*v/sc));L.heat.push(qh.map(v=>heatDay*v/sh*coolF));
+    L.home.push(hotel?W_GUEST.map((w,h)=>hotelPlug*w+commonDay*(h>=7&&h<21?0.6/14:0.4/10)):W_BASE.map(w=>baseYr/365*w));
+    L.laundry.push(W_LAUNDRY.map(w=>laundryDay*w));L.pump.push(W_WATER.map(w=>pumpDay*w));L.lift.push(W_LIFT.map(w=>liftRun*w+liftSb/24));
+    const wf=1-0.15*Math.cos(2*Math.PI*(m-6.3)/12)*(lat<0?-1:1);
+    L.water.push(W_WATER.map(w=>whYr/365*wf*w));
+    L.ev.push((p.evTime==="day"?W_EVD:W_EVN).map(w=>p.ev*0.3/365*w));
+    L.pool.push(W_POOL.map(w=>p.pool?2000*warm[m]/wsum/DAYS[m]*w:0))}
+  // existing home: build the load from the appliance list instead
+  let appRows=null;
+  if(p.loadMode==="real"&&Array.isArray(p.apps)){
+    const cmax=Math.max(...cdd)||1,hmax=Math.max(...hdd)||1,B={base:"home",cool:"cool",heat:"heat",water:"water",ev:"ev",pool:"pool",lift:"lift",laundry:"laundry"};
+    Object.keys(L).forEach(k=>L[k]=MON.map(()=>new Array(24).fill(0)));
+    appRows=p.apps.map(a=>{const kind=(APPS[a.k]||{}).kind||"base",w=winW(a.s,a.h),kwh=(+a.q||0)*(+a.w||0)/1000;let yr=0;
+      for(let m=0;m<12;m++){const sf=kind==="cool"?cdd[m]/cmax:kind==="heat"?hdd[m]/hmax:kind==="water"?1-0.15*Math.cos(2*Math.PI*(m-6.3)/12)*(lat<0?-1:1):1;
+        for(let h=0;h<24;h++){const v=kwh*w[h]*sf;L[B[kind]][m][h]+=v;yr+=v*DAYS[m]}}
+      return {...a,kind,w24:w,yr}})}
+  const keys=Object.keys(L);
+  const yr=k=>sum(L[k].map((d,m)=>sum(d)*DAYS[m]));
+  const modelled=sum(keys.map(yr));
+  let scale=1;if(+p.billKwh>0&&modelled>0){scale=+p.billKwh/modelled;keys.forEach(k=>L[k]=L[k].map(d=>d.map(v=>v*scale)))}
+  const total=MON.map((_,m)=>Array.from({length:24},(_,h)=>sum(keys.map(k=>L[k][m][h]))));
+  const annual=sum(total.map((d,m)=>sum(d)*DAYS[m]));
+  const TF=tariffFor(p,st),useM=total.map((d,m)=>sum(d)*DAYS[m]),TOUc=TF?null:touFor(p,st),hp=TOUc?touHourly(TOUc):null;
+  let flat=+p.price>0?+p.price:st.price;
+  const baseBills=hp?total.map((d,m)=>sum(d.map((v,h)=>v*hp[h]))*DAYS[m]):useM.map(k=>TF?tierBill(TF,k):k*flat);
+  if(hp)flat=sum(baseBills)/annual;
+  const billOf=k=>TF?tierBill(TF,k):k*flat,price=sum(baseBills)/annual;
+  const avgDay=annual/365,bMax=Math.min(200,Math.max(40,Math.ceil(avgDay*0.6/20)*20)),bStep=[2.5,5,10,20].find(x=>bMax/x<=20)||20,BATTS=[];for(let b=0;b<=bMax+1e-9;b+=bStep)BATTS.push(+b.toFixed(2));
+  const RD=regionDefaults(st),exportCap=p.exportCap!==""&&!isNaN(+p.exportCap)?clamp(+p.exportCap,0,100):RD.exportCap,costW=+p.costW>0?+p.costW:RD.costW,costB=+p.costB>0?+p.costB:RD.costB,
+    metering=p.metering==="auto"?RD.metering:p.metering,exportRate=p.exportRate!==""&&!isNaN(+p.exportRate)?+p.exportRate:RD.exportRate;
+  const der=(1-p.loss/100)*0.96*SHADE_PV[p.shade];
+  g.faces.forEach(f=>{f.poa=0;f.yNoTemp=0;f.pp=MON.map((_,m)=>{const I=irr(latR,m,cl.kt[m],f.tilt,f.az),Th=hourT(cl.T[m],cl.DR);
+      f.poa+=sum(I)/1000*DAYS[m];f.yNoTemp+=p.panelW/1000*sum(I)/1000*der*DAYS[m];
+      return I.map((v,h)=>{const tc=(Th[h]-32)/1.8+0.03*v;return p.panelW/1000*v/1000*der*(1-0.0035*Math.max(0,tc-25))})});
+    f.yield=sum(f.pp.map((d,m)=>sum(d)*DAYS[m]))});
+  const order=[...g.faces].filter(f=>f.cap>0).sort((a,b)=>b.yield-a.yield);
+  const maxP=Math.min(200,sum(order.map(f=>f.cap)));
+  return {st,lat,latR,cl,g,ins,UAc,UAh,comp,btu,need,unit,systems,peakHour:ph,Td,rooms,heatDesign,capAt,cop,
+    L,total,annual,price,modelled,scale,order,maxP,cdd,hdd,RD,appRows,der,whYr,baseYr,costW,costB,metering,exportRate,exportCap,TF,flat,useM,baseBills,billOf,
+    hotel,occ,extra,TOU:TOUc,hp,gridCharge:hp?p.gridCharge!==false:false,BATTS,bMax,bStep}}
+function allocate(M,n){const a=new Map();let left=n;for(const f of M.order){const k=Math.min(left,f.cap);a.set(f,k);left-=k}return a}
+function pvHourly(M,n){const a=allocate(M,n);return MON.map((_,m)=>Array.from({length:24},(_,h)=>{let s=0;a.forEach((k,f)=>s+=k*f.pp[m][h]);return s}))}
+function battPower(cap){return cap>0?Math.max(3.8,cap*0.5):0}
+// steady-state daily dispatch: solar → home → battery → export; battery → home; grid last
+function dispatch(M,P,cap,reserve,detail){
+  const pm=battPower(cap),res=cap*reserve/100,hp=M.hp;let imp=0,exp=0;const impM=[],expM=[],prodM=[],costM=[],chgM=[];
+  const D=detail?{direct:[],batt:[],grid:[],charge:[],exp:[],soc:[],prod:[]}:null;
+  const mo=detail?{direct:[],batt:[],grid:[],exp:[],prod:[]}:null;
+  for(let m=0;m<12;m++){const Lm=M.total[m],Pm=P[m];let soc=res,md=0,mb=0,mg=0,me=0,mc=0,gc=0;prodM.push(sum(Pm)*DAYS[m]);
+    // time-of-day tariff: top the battery up from the grid off-peak (0–6h) with whatever solar won't refill before evening
+    // peak hours get priority: keep enough charge for the rest of the peak, and charge from the grid off-peak only what solar won't cover
+    let target=res;const after=new Array(25).fill(0);
+    if(hp&&cap>0){const pk=hp[12]*1.15;for(let h=23;h>=0;h--)after[h]=after[h+1]+(hp[h]>pk?Math.max(0,Math.min(Lm[h]-Pm[h],pm))/0.95:0);
+      if(M.gridCharge){let sur=0;for(let h=6;h<18;h++)sur+=Math.max(0,Math.min(Pm[h]-Lm[h],pm))*0.95;target=res+clamp(Math.min(after[0],cap-res)-sur,0,cap-res)}}
+    for(let pass=0;pass<3;pass++){const last=pass===2;
+      if(last&&D){D.direct[m]=[];D.batt[m]=[];D.grid[m]=[];D.charge[m]=[];D.exp[m]=[];D.soc[m]=[];D.prod[m]=Pm}
+      for(let h=0;h<24;h++){const l=Lm[h],s=Pm[h],dir=Math.min(l,s);let c=0,dis=0,e=0,gr=0;
+        let gch=0;
+        if(s>l){const sur=s-l;c=Math.min(sur,pm,Math.max(0,(cap-soc)/0.95));soc+=c*0.95;e=sur-c}
+        else{const def=l-s,offPk=hp&&h<6;const keep=hp&&hp[h]<=hp[12]*1.15?Math.min(after[h+1],cap-res):0;dis=offPk?0:Math.min(def,pm,Math.max(0,(soc-res-keep)*0.95));soc-=dis/0.95;gr=def-dis;
+          if(offPk&&soc<target){gch=Math.min(pm,(target-soc)/0.95,(target-res)/0.95/6+1e-9);soc+=gch*0.95;gr+=gch;c=gch}}
+        if(last){imp+=gr*DAYS[m];exp+=e*DAYS[m];md+=dir;mb+=dis;mg+=gr;me+=e;gc+=gch;if(hp)mc+=gr*hp[h];
+          if(D){D.direct[m].push(dir);D.batt[m].push(dis);D.grid[m].push(gr);D.charge[m].push(c);D.exp[m].push(e);D.soc[m].push(cap?soc/cap:0)}}}}
+    impM.push(mg*DAYS[m]);expM.push(me*DAYS[m]);costM.push(mc*DAYS[m]);chgM.push(gc*DAYS[m]);
+    if(mo){mo.direct.push(md*DAYS[m]);mo.batt.push(mb*DAYS[m]);mo.grid.push(mg*DAYS[m]);mo.exp.push(me*DAYS[m]);mo.prod.push(sum(Pm)*DAYS[m])}}
+  return {imp,exp,impM,expM,prodM,costM,chgM,D,mo}}
+// what the bought power costs (time-of-day, stepped or flat)
+function impCost(M,d){return M.hp?sum(d.costM):sum(d.impM.map(M.billOf))}
+function econ(M,p,n,cap,d){
+  const er=M.exportRate,capF=M.exportCap/100;let cost,paid=0;
+  if(M.hp){for(let m=0;m<12;m++)paid+=Math.min(d.expM[m],(M.metering==="net"?1:capF)*d.prodM[m]);cost=sum(d.costM)-paid*er}
+  else if(M.metering==="net"){const net=d.imp-d.exp;paid=Math.min(d.exp,d.imp);
+    if(M.TF){let bank=0;cost=0;for(let m=0;m<12;m++){const x=d.impM[m]-d.expM[m]-bank;if(x>=0){cost+=M.billOf(x);bank=0}else bank=-x}cost-=bank*er}
+    else cost=net>=0?net*M.flat:net*er}
+  else{for(let m=0;m<12;m++)paid+=Math.min(d.expM[m],capF*d.prodM[m]);cost=sum(d.impM.map(M.billOf))-paid*er}
+  const base=sum(M.baseBills),save=base-cost,kW=n*p.panelW/1000;
+  const g=(1+p.esc/100)*(1-p.deg/100),r=1+p.disc/100;let F=0;for(let y=0;y<25;y++)F+=g**y/r**(y+1);
+  const capex=(kW*1000*M.costW+cap*M.costB)*(1-p.incent/100),repl=cap*M.costB*0.5*(1-p.incent/100);
+  const npv=save*F-capex-repl/r**15;
+  let cum=0,pay=null;for(let y=0;y<25;y++){const prev=cum;cum+=save*g**y-(y===15?repl:0);if(pay===null&&capex>0&&cum>=capex)pay=y+(capex-prev)/Math.max(1e-9,cum-prev)}
+  return {cost,base,save,capex,npv,payback:pay,lifetime:cum-capex,kW,paid,curtailed:M.metering==="net"?0:d.exp-paid}}
+function optimise(M,p){
+  const BATTS=M.BATTS;let best={npv:0,panels:0,batt:0};const curves={};BATTS.forEach(b=>curves[b]=[]);
+  const P=MON.map(()=>new Array(24).fill(0));let fi=0,used=0;
+  for(let n=0;n<=M.maxP;n++){
+    if(n>0){while(fi<M.order.length&&used>=M.order[fi].cap){fi++;used=0}const f=M.order[fi];used++;
+      for(let m=0;m<12;m++)for(let h=0;h<24;h++)P[m][h]+=f.pp[m][h]}
+    for(const b of BATTS){const d=dispatch(M,P,b,p.reserve,false),e=econ(M,p,n,b,d);curves[b].push(e.npv);
+      if(e.npv>best.npv+1)best={npv:e.npv,panels:n,batt:b}}}
+  return {best,curves}}
+function nightBatt(M,P,reserve){
+  const night=MON.map((_,m)=>{let s=0;for(let h=0;h<24;h++)s+=Math.max(0,M.total[m][h]-P[m][h]);return s});
+  const extra=MON.map((_,m)=>{let s=0;for(let h=0;h<24;h++)s+=Math.max(0,P[m][h]-M.total[m][h]);return s});
+  const avgNight=sum(night.map((v,m)=>v*DAYS[m]))/365,shift=sum(MON.map((_,m)=>Math.min(night[m]/0.9,extra[m]*0.95)*DAYS[m]))/365;
+  return {avgNight,size:Math.min(M.bMax,Math.ceil(shift/(1-reserve/100)/M.bStep)*M.bStep)}}
+// smallest panel count that covers 100% of yearly use (or the whole roof)
+function fullCount(M){let full=0,got=0;for(const f of M.order){const need=(M.annual-got)/f.yield;if(need<=f.cap){full+=Math.ceil(need);got=M.annual;break}full+=f.cap;got+=f.cap*f.yield}return {full,fits:got>=M.annual-1}}
+// MODEL END
+
+// ---------- helpers ----------
+const usdOnly=x=>(x<0?"−$":"$")+fmt(Math.abs(x));
+function marginal(M,k){return M.TF?M.billOf(k+1)-M.billOf(k):M.flat}
+const $=id=>document.getElementById(id);
+const fmt=(x,d=0)=>Number(x).toLocaleString("en-US",{maximumFractionDigits:d,minimumFractionDigits:d});
+// money: the model works in USD; CX picks what is shown (local currency where a tariff gives an exchange rate)
+let CX={cur:"$",fx:1};
+const moneyTX=()=>M?(M.TF&&M.TF.fx>1?M.TF:TARIFF[M.st.region]||null):null;
+function setMoney(){const T=moneyTX();CX=T&&S.money!=="usd"?{cur:T.cur,fx:T.fx}:{cur:"$",fx:1}}
+const bigN=a=>a>=1e9?fmt(a/1e9,2)+" billion":a>=1e6?fmt(a/1e6,a>=1e8?0:1)+" million":fmt(a>=1e4?Math.round(a/1000)*1000:a);
+const usd=x=>CX.fx>1?(x<0?"−":"")+bigN(Math.abs(x*CX.fx))+" "+CX.cur:(x<0?"−$":"$")+fmt(Math.abs(x));
+const ppk=x=>CX.fx>1?`${fmt(x*CX.fx)} ${CX.cur}`:`$${x.toFixed(3)}`;
+const ppkAlt=(x,T)=>CX.fx>1?` ($${x.toFixed(3)})`:T&&T.fx>1?` (${fmt(x*T.fx)} ${T.cur})`:"";
+const kmoney=v=>CX.fx>1?(v<0?"−":"")+fmt(Math.abs(v)*CX.fx/1e6,Math.abs(v)*CX.fx<1e7&&v?1:0)+"M":(v<0?"−$":"$")+kfmt(Math.abs(v));
+// money inputs are stored in USD; shown in CX (solar per kWp in local currency, as installers quote it)
+const MIN={price:[1,"Price per kWh","0.005"],exportRate:[1,"Export price per kWh","0.005"],costW:[1000,"Solar installed","0.05"],costB:[1,"Battery installed, per kWh","10"]};
+function moneyInputs(){const loc=CX.fx>1;
+  Object.entries(MIN).forEach(([k,[f,lb,st]])=>{const el=$(k),def={price:M&&M.st.price,exportRate:M&&M.RD.exportRate,costW:M&&M.RD.costW,costB:M&&M.RD.costB}[k];
+    const unit=loc?(k==="costW"?`${CX.cur} per kWp`:k==="costB"?CX.cur:`${CX.cur}`):(k==="costW"?"$/W":k==="costB"?"$":"$");
+    const lab=document.querySelector(`label[for=${k}]`);if(lab)lab.innerHTML=`${lb} (${unit})${k==="price"?' <span class="hint">optional</span>':""}`;
+    el.step=loc?(k==="costW"||k==="costB"?100000:10):st;
+    if(def!=null)el.placeholder=loc?fmt(def*f*CX.fx).replace(/,/g,""):String(def);
+    if(document.activeElement!==el)el.value=S[k]===""||S[k]==null?"":loc?Math.round(+S[k]*f*CX.fx):S[k]})}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmtHour=t=>{const h=Math.floor(t)%24,mm=Math.round((t-Math.floor(t))*60)%60;if(S.unit==="m")return `${h}:${String(mm).padStart(2,"0")}`;const ap=h<12?"am":"pm";const hh=h%12===0?12:h%12;return `${hh}:${String(mm).padStart(2,"0")} ${ap}`};
+// units: the model works in US units; these only change what is shown
+const MET=()=>S.unit==="m";
+const tF=f=>MET()?`${fmt((f-32)/1.8)}°C`:`${fmt(f)}°F`;
+const cap=b=>MET()?`${fmt(b/3412,1)} kW`:`${fmt(b)} BTU/h`;
+const capBoth=b=>MET()?`${fmt(b/3412,1)} kW (${fmt(b)} BTU/h)`:`${fmt(b)} BTU/h (${fmt(b/3412,1)} kW)`;
+const headLbl=b=>`${fmt(b)} BTU · ${HP[b]||fmt(b/9000,1)} HP · ${fmt(b/3412,1)} kW`;
+function isMetric(){return S.units==="metric"||(S.units==="auto"&&!US_STATES.has(stationFor(S).region))}
+
+// ---------- state ----------
+const DEF={cityLabel:"Austin, TX",coord:null,front:180,roof:"gable",pitch:23,roofColor:"medium",stories:1,aspect:1.5,ceil:"9",windows:"avg",insul:"avg",shade:"some",
+  units:"auto",money:"local",loadMode:"est",bldg:"home",lifts:0,liftType:"std",hOcc:65,laundry:true,roofUse:100,tou:null,gridCharge:true,apps:null,rooms:[{type:"living",name:"Living room",area:320,facade:"front"},{type:"kitchen",name:"Kitchen",area:180,facade:"back"},{type:"dining",name:"Dining room",area:140,facade:"back"},
+    {type:"bedroom",name:"Primary bedroom",area:200,facade:"s2"},{type:"bedroom",name:"Bedroom 2",area:130,facade:"s1"},{type:"bedroom",name:"Bedroom 3",area:130,facade:"front"},{type:"office",name:"Office",area:110,facade:"s1"}],
+  halls:20,occ:4,setpoint:76,system:"central",seer:15.2,heat:"hp",water:"elec",ev:0,evTime:"night",pool:false,billKwh:"",price:"",
+  metering:"auto",exportRate:"",exportCap:"",priceMode:"auto",tiers:null,panelW:430,costW:"",costB:"",incent:0,reserve:10,esc:3,disc:5,loss:14,deg:0.5,ess:0.8,hours:12,month:6,hour:14};
+let S=JSON.parse(JSON.stringify(DEF));
+try{const saved=JSON.parse(localStorage.getItem("suncool2")||"null");if(saved){Object.keys(DEF).forEach(k=>{if(k in saved)S[k]=saved[k]});$("savedNote").textContent="Your last inputs are restored."}}catch(e){}
+S.panels=null;S.batt=null;S.manual=false;S.pick="best";S.unit="ft";
+function persist(){try{const o={};Object.keys(DEF).forEach(k=>o[k]=S[k]);localStorage.setItem("suncool2",JSON.stringify(o))}catch(e){}}
+let M=null,OPT=null,SIM=null,EC=null;
+
+// ---------- coordinates (decimal or degrees-minutes-seconds) ----------
+function parseCoords(str){
+  const s=str.toUpperCase().replace(/[′’]/g,"'").replace(/[″”]/g,'"');
+  const toks=[];const re=/(-?\d+(?:\.\d+)?)|(?<![A-Z])([NSEW])(?![A-Z])/g;let m;
+  while((m=re.exec(s)))toks.push(m[1]!==undefined?{n:parseFloat(m[1])}:{h:m[2]});
+  const groups=[];let cur=[];
+  if(toks.some(t=>t.h)){toks.forEach(t=>{if(t.n!==undefined)cur.push(t.n);else if(cur.length){groups.push({nums:cur,h:t.h});cur=[]}});if(cur.length)groups.push({nums:cur,h:null})}
+  else{const ns=toks.map(t=>t.n);if(ns.length===2)groups.push({nums:[ns[0]]},{nums:[ns[1]]});else if(ns.length===4)groups.push({nums:ns.slice(0,2)},{nums:ns.slice(2)});else if(ns.length===6)groups.push({nums:ns.slice(0,3)},{nums:ns.slice(3)});else return null}
+  if(groups.length<2)return null;
+  const val=g=>{const n=g.nums;const sign=n[0]<0?-1:1;let v=Math.abs(n[0])+(n[1]||0)/60+(n[2]||0)/3600;if(g.h==="S"||g.h==="W")v=-v;return sign*v};
+  let a=groups[0],b=groups[1];if(a.h==="E"||a.h==="W"||b.h==="N"||b.h==="S"){[a,b]=[b,a]}
+  const lat=val(a),lon=val(b);if(Math.abs(lat)>90||Math.abs(lon)>180)return null;return {lat,lon}}
+
+// ---------- charts ----------
+const SVGNS="http://www.w3.org/2000/svg";
+function el(tag,attrs,parent){const e=document.createElementNS(SVGNS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e}
+function txt(parent,x,y,s,attrs={}){const t=el("text",{x,y,...attrs},parent);t.textContent=s;return t}
+function niceMax(v){if(v<=0)return 1;const p=10**Math.floor(Math.log10(v));const n=v/p;return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*p}
+function kfmt(v){return Math.abs(v)>=1000?fmt(v/1000,Math.abs(v)<10000&&v%1000?1:0)+"k":fmt(v,Math.abs(v)<10&&v%1?1:0)}
+function tipShow(box,tip,html,x,y){tip.innerHTML=html;tip.hidden=false;const bw=box.clientWidth,tw=tip.offsetWidth;let left=x+14;if(left+tw>bw)left=x-tw-14;tip.style.left=Math.max(0,left)+"px";tip.style.top=Math.max(0,y-10)+"px"}
+function legend(box,items){box.innerHTML=items.map(i=>`<span><i class="${i.line?"line":""}" style="background:${i.color}"></i>${i.name}</span>`).join("")}
+function stackChart(box,series,line,unit){
+  box.innerHTML="";const W=680,H=250,ml=46,mr=8,mt=10,mb=26,iw=W-ml-mr,ih=H-mt-mb;
+  const svg=el("svg",{viewBox:`0 0 ${W} ${H}`,role:"img"},box);const tip=document.createElement("div");tip.className="tip";tip.hidden=true;box.appendChild(tip);
+  const totals=MON.map((_,m)=>sum(series.map(s=>s.values[m])));const ymax=niceMax(Math.max(...totals,...(line?line.values:[0]))*1.05);
+  const y=v=>mt+ih-v/ymax*ih,band=iw/12,bw=band*0.6;
+  for(let i=0;i<=4;i++){const v=ymax*i/4;el("line",{x1:ml,x2:W-mr,y1:y(v),y2:y(v),stroke:"var(--line)"},svg);txt(svg,ml-6,y(v)+4,kfmt(v),{"text-anchor":"end"})}
+  MON.forEach((mn,m)=>{const x=ml+band*m+(band-bw)/2;let acc=0;const vis=series.filter(s=>s.values[m]>0.5);
+    vis.forEach((s,i)=>{const v=s.values[m],y0=y(acc);acc+=v;const top=i===vis.length-1,hg=Math.max(0,y0-y(acc)-(top?0:2));if(hg<=0)return;
+      const r=top?Math.min(4,hg,bw/2):0,yy=y0-hg;el("path",{d:`M${x},${y0} V${yy+r} Q${x},${yy} ${x+r},${yy} H${x+bw-r} Q${x+bw},${yy} ${x+bw},${yy+r} V${y0} Z`,fill:s.color},svg)});
+    txt(svg,ml+band*m+band/2,H-8,mn,{"text-anchor":"middle"})});
+  if(line){const pts=line.values.map((v,m)=>[ml+band*m+band/2,y(v)]);el("path",{d:"M"+pts.map(p=>p.join(",")).join(" L"),fill:"none",stroke:line.color,"stroke-width":2},svg);
+    pts.forEach(p=>el("circle",{cx:p[0],cy:p[1],r:3.5,fill:line.color,stroke:"var(--card)","stroke-width":2},svg))}
+  MON.forEach((mn,m)=>{const hit=el("rect",{x:ml+band*m,y:mt,width:band,height:ih,fill:"transparent"},svg);
+    hit.addEventListener("mousemove",ev=>{const r=box.getBoundingClientRect();let html=`<b>${mn}</b>`+series.map(s=>`<div class="r"><span><i style="background:${s.color}"></i>${s.name}</span><span>${fmt(s.values[m])} ${unit}</span></div>`).join("");
+      html+=`<div class="r" style="border-top:1px solid var(--line);margin-top:4px;padding-top:4px"><span>Total</span><span>${fmt(totals[m])} ${unit}</span></div>`;
+      if(line)html+=`<div class="r"><span><i style="background:${line.color}"></i>${line.name}</span><span>${fmt(line.values[m])} ${unit}</span></div>`;
+      tipShow(box,tip,html,ev.clientX-r.left,ev.clientY-r.top);hit.setAttribute("fill","rgba(127,127,127,.08)")});
+    hit.addEventListener("mouseleave",()=>{tip.hidden=true;hit.setAttribute("fill","transparent")})})}
+
+function npvChart(box,curve,opt,cur,full){
+  box.innerHTML="";const W=680,H=220,ml=56,mr=10,mt=14,mb=28,iw=W-ml-mr,ih=H-mt-mb;
+  const svg=el("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"25-year value by number of panels"},box);const tip=document.createElement("div");tip.className="tip";tip.hidden=true;box.appendChild(tip);
+  const n=Math.max(1,curve.length-1);let lo=Math.min(0,...curve),hi=Math.max(0,...curve);const step=niceMax((hi-lo)||1000)/4;
+  lo=Math.floor(lo/step)*step;hi=Math.ceil(hi/step)*step;if(hi===lo)hi=lo+step;
+  const x=i=>ml+i/n*iw,y=v=>mt+ih-(v-lo)/(hi-lo)*ih;
+  for(let v=lo;v<=hi+1e-6;v+=step){el("line",{x1:ml,x2:W-mr,y1:y(v),y2:y(v),stroke:Math.abs(v)<1e-6?"var(--muted)":"var(--line)"},svg);txt(svg,ml-6,y(v)+4,kmoney(v),{"text-anchor":"end"})}
+  const ts=n>60?20:n>30?10:5;for(let i=0;i<=n;i+=ts)txt(svg,x(i),H-8,i,{"text-anchor":"middle"});
+  const pts=curve.map((v,i)=>[x(i),y(v)]);
+  el("path",{d:`M${x(0)},${y(0)} L`+pts.map(p=>p.join(",")).join(" L")+` L${x(n)},${y(0)}Z`,fill:"var(--sun)",opacity:.12},svg);
+  el("path",{d:"M"+pts.map(p=>p.join(",")).join(" L"),fill:"none",stroke:"var(--sun)","stroke-width":2.5},svg);
+  if(full!=null&&full<=n){el("line",{x1:x(full),x2:x(full),y1:mt,y2:mt+ih,stroke:"var(--muted)","stroke-dasharray":"3 4"},svg);txt(svg,x(full)+4,mt+10,"100% of use")}
+  el("line",{x1:x(cur),x2:x(cur),y1:mt,y2:mt+ih,stroke:"var(--ink)","stroke-width":1.5},svg);
+  el("circle",{cx:x(cur),cy:y(curve[cur]||0),r:5,fill:"var(--ink)",stroke:"var(--card)","stroke-width":2},svg);
+  if(opt!=null&&opt<=n){el("circle",{cx:x(opt),cy:y(curve[opt]),r:6.5,fill:"var(--sun)",stroke:"var(--card)","stroke-width":2.5},svg);txt(svg,x(opt),y(curve[opt])-12,"best "+opt,{"text-anchor":"middle",style:"fill:var(--ink);font-weight:600"})}
+  const hl=el("line",{x1:0,x2:0,y1:mt,y2:mt+ih,stroke:"var(--muted)",opacity:0},svg);const hit=el("rect",{x:ml,y:mt,width:iw,height:ih,fill:"transparent",style:"cursor:pointer"},svg);
+  const idx=ev=>{const r=svg.getBoundingClientRect();return clamp(Math.round(((ev.clientX-r.left)/r.width*W-ml)/iw*n),0,n)};
+  hit.addEventListener("mousemove",ev=>{const i=idx(ev);hl.setAttribute("x1",x(i));hl.setAttribute("x2",x(i));hl.setAttribute("opacity",.6);const b=box.getBoundingClientRect();
+    tipShow(box,tip,`<b>${i} panels</b><div class="r"><span>25-yr value</span><span>${usd(curve[i])}</span></div><div class="r"><span>Click to choose</span><span></span></div>`,ev.clientX-b.left,ev.clientY-b.top)});
+  hit.addEventListener("mouseleave",()=>{tip.hidden=true;hl.setAttribute("opacity",0)});
+  hit.addEventListener("click",ev=>{S.panels=idx(ev);S.manual=true;selectionUpdate(true)})}
+
+// day chart (kW by hour) + battery level
+function dayCharts(){
+  const m=S.month,D=SIM.D,box=$("dayChart"),sbox=$("socChart");box.innerHTML="";sbox.innerHTML="";
+  const W=680,H=236,ml=40,mr=10,mt=22,mb=24,iw=W-ml-mr,ih=H-mt-mb;
+  const svg=el("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"Power by hour"},box);const tip=document.createElement("div");tip.className="tip";tip.hidden=true;box.appendChild(tip);
+  const prod=D.prod[m],load=M.total[m];const ymax=niceMax(Math.max(...prod,...load)*1.08);
+  const x=h=>ml+h/24*iw,y=v=>mt+ih-v/ymax*ih;
+  const sunUp=irr(M.latR,m,M.cl.kt[m],0,0).map(v=>v>0);
+  const night=(svgEl,yy,hh)=>sunUp.forEach((u,h)=>{if(!u)el("rect",{x:x(h),y:yy,width:iw/24+0.5,height:hh,fill:"var(--night)"},svgEl)});
+  night(svg,mt,ih);
+  for(let i=0;i<=4;i++){const v=ymax*i/4;el("line",{x1:ml,x2:W-mr,y1:y(v),y2:y(v),stroke:"var(--line)"},svg);txt(svg,ml-6,y(v)+4,fmt(v,v<10&&v%1?1:0),{"text-anchor":"end"})}
+  txt(svg,ml-6,mt-12,"kW",{"text-anchor":"end"});
+  for(let h=0;h<=24;h+=3)txt(svg,x(h),H-6,MET()?`${h}:00`:h===0||h===24?"12am":h===12?"12pm":(h%12)+(h<12?"am":"pm"),{"text-anchor":"middle"});
+  const ser=[{k:"direct",c:"var(--s-solar)"},{k:"batt",c:"var(--s-batt)"},{k:"grid",c:"var(--s-grid)"}];
+  const acc=new Array(24).fill(0);
+  ser.forEach(s=>{const arr=D[s.k][m];let d="";for(let h=0;h<24;h++){const y0=y(acc[h]),y1=y(acc[h]+arr[h]);if(arr[h]>0.005)d+=`M${x(h)+1},${y0} V${y1} H${x(h+1)-1} V${y0} Z `;acc[h]+=arr[h]}
+    if(d)el("path",{d,fill:s.c},svg)});
+  let pd="";for(let h=0;h<24;h++)pd+=(h?" L":"M")+`${x(h)},${y(prod[h])} L${x(h+1)},${y(prod[h])}`;
+  if(S.panels)el("path",{d:pd,fill:"none",stroke:"var(--ink)","stroke-width":2,"stroke-linejoin":"round"},svg);
+  const head=el("line",{x1:x(S.hour),x2:x(S.hour),y1:mt,y2:mt+ih,stroke:"var(--sun)","stroke-width":2},svg);
+  const H2=100,mt2=10,mb2=22,ih2=H2-mt2-mb2;const s2=el("svg",{viewBox:`0 0 ${W} ${H2}`,role:"img","aria-label":"Battery level by hour"},sbox);
+  const y2=v=>mt2+ih2-v*ih2;night(s2,mt2,ih2);
+  [0,.5,1].forEach(v=>{el("line",{x1:ml,x2:W-mr,y1:y2(v),y2:y2(v),stroke:"var(--line)"},s2);txt(s2,ml-6,y2(v)+4,v*100+"%",{"text-anchor":"end"})});
+  const cap=S.batt||0;
+  if(cap>0){const soc=D.soc[m],start=soc[23];
+    let dd=`M${x(0)},${y2(0)} L${x(0)},${y2(start)}`;soc.forEach((v,h)=>dd+=` L${x(h+1)},${y2(v)}`);dd+=` L${x(24)},${y2(0)} Z`;el("path",{d:dd,fill:"var(--s-batt)",opacity:.3},s2);
+    let dl=`M${x(0)},${y2(start)}`;soc.forEach((v,h)=>dl+=` L${x(h+1)},${y2(v)}`);el("path",{d:dl,fill:"none",stroke:"var(--s-batt)","stroke-width":2},s2);
+    const res=S.reserve/100;el("line",{x1:ml,x2:W-mr,y1:y2(res),y2:y2(res),stroke:"var(--muted)","stroke-dasharray":"3 4"},s2);
+    const lbl=(h,s,yy)=>txt(s2,clamp(x(h),ml+50,W-mr-60),yy,s,{"text-anchor":"middle",style:"fill:var(--ink);font-size:10.5px"});
+    const cs=D.charge[m].findIndex(v=>v>0.01);if(cs>=0)lbl(cs+0.5,"sun starts filling",clamp(y2(soc[cs])-8,mt2+8,mt2+ih2-4));
+    const fullH=soc.findIndex(v=>v>0.985);if(fullH>=0&&Math.abs(fullH-cs)>2)lbl(fullH+0.5,"full",y2(1)+12);
+    let emp=-1;for(let k=0;k<24;k++){const h=(12+k)%24;if(D.grid[m][h]>0.01&&soc[h]<=res+0.01){emp=h;break}}
+    if(emp>=0)lbl(emp+0.5,"empty → grid",Math.max(mt2+10,y2(res)-6))}
+  else txt(s2,ml+iw/2,mt2+ih2/2+4,"No battery selected. Add one in the Solar section to see it charge and discharge.",{"text-anchor":"middle"});
+  const head2=el("line",{x1:x(S.hour),x2:x(S.hour),y1:mt2,y2:mt2+ih2,stroke:"var(--sun)","stroke-width":2},s2);
+  dayCharts.heads=[head,head2];dayCharts.x=x;
+  const pick=(ev,sv)=>{const r=sv.getBoundingClientRect();return clamp(((ev.clientX-r.left)/r.width*W-ml)/iw*24,0,23.75)};
+  [svg,s2].forEach(sv=>{let drag=false;
+    sv.addEventListener("pointerdown",ev=>{drag=true;try{sv.setPointerCapture(ev.pointerId)}catch(e){}setHour(pick(ev,sv))});
+    sv.addEventListener("pointermove",ev=>{const t=pick(ev,sv);if(drag)setHour(t);if(sv!==svg)return;const h=Math.floor(t);const b=box.getBoundingClientRect();
+      tipShow(box,tip,`<b>${fmtHour(h)} – ${fmtHour(h+1)}</b><div class="r"><span>Solar made</span><span>${fmt(prod[h],2)} kW</span></div><div class="r"><span>Home used</span><span>${fmt(load[h],2)} kW</span></div><div class="r"><span><i style="background:var(--s-solar)"></i>from solar</span><span>${fmt(D.direct[m][h],2)}</span></div><div class="r"><span><i style="background:var(--s-batt)"></i>from battery</span><span>${fmt(D.batt[m][h],2)}</span></div><div class="r"><span><i style="background:var(--s-grid)"></i>from grid</span><span>${fmt(D.grid[m][h],2)}</span></div><div class="r"><span>Into battery</span><span>${fmt(D.charge[m][h],2)}</span></div><div class="r"><span>Sent to grid</span><span>${fmt(D.exp[m][h],2)}</span></div>`,ev.clientX-b.left,ev.clientY-b.top)});
+    sv.addEventListener("pointerup",()=>drag=false);sv.addEventListener("pointerleave",()=>{tip.hidden=true;drag=false})})}
+function moveHeads(){if(!dayCharts.heads)return;const X=dayCharts.x(S.hour);dayCharts.heads.forEach(l=>{l.setAttribute("x1",X);l.setAttribute("x2",X)})}
+
+// ---------- 3D ----------
+const V3={};
+const C3={solar:0xf2b705,batt:0x22c58b,grid:0x4b9bff};
+function fallback(msg){const d=document.createElement("div");d.className="scene-fallback";d.textContent=msg;$("sceneWrap").appendChild(d)}
+function init3D(){
+  const wrap=$("sceneWrap");
+  if(!window.THREE||!THREE.OrbitControls){fallback("The 3D view could not load. All numbers below still work.");return false}
+  try{V3.renderer=new THREE.WebGLRenderer({antialias:true})}catch(e){V3.renderer=null;fallback("3D needs WebGL, which is turned off in this browser. All numbers below still work.");return false}
+  const r=V3.renderer;r.setPixelRatio(Math.min(2,window.devicePixelRatio||1));r.shadowMap.enabled=true;r.shadowMap.type=THREE.PCFSoftShadowMap;r.outputEncoding=THREE.sRGBEncoding;
+  wrap.insertBefore(r.domElement,wrap.firstChild);
+  const sc=V3.scene=new THREE.Scene();
+  V3.camera=new THREE.PerspectiveCamera(38,1,0.5,800);V3.camera.position.set(26,19,30);
+  V3.controls=new THREE.OrbitControls(V3.camera,r.domElement);V3.controls.target.set(0,3,0);V3.controls.enableDamping=true;V3.controls.maxPolarAngle=Math.PI/2.08;V3.controls.minDistance=8;V3.controls.maxDistance=110;
+  V3.hemi=new THREE.HemisphereLight(0xdcebff,0x5d6b4c,0.55);sc.add(V3.hemi);
+  V3.sunLight=new THREE.DirectionalLight(0xfff0d8,1.1);V3.sunLight.castShadow=true;V3.sunLight.shadow.mapSize.set(2048,2048);
+  const sh=V3.sunLight.shadow.camera;sh.left=-28;sh.right=28;sh.top=28;sh.bottom=-28;sh.near=1;sh.far=160;V3.sunLight.shadow.bias=-0.0005;
+  sc.add(V3.sunLight);sc.add(V3.sunLight.target);
+  const ground=new THREE.Mesh(new THREE.CircleGeometry(70,72),new THREE.MeshStandardMaterial({color:0x55703f,roughness:1}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;sc.add(ground);
+  const ring=new THREE.Mesh(new THREE.RingGeometry(21,21.3,96),new THREE.MeshBasicMaterial({color:0xf3f5f7,transparent:true,opacity:.7}));ring.rotation.x=-Math.PI/2;ring.position.y=0.02;sc.add(ring);
+  [["N",0],["E",90],["S",180],["W",270]].forEach(([l,az])=>{const c=document.createElement("canvas");c.width=c.height=128;const g=c.getContext("2d");
+    g.fillStyle=l==="N"?"#d9412b":"#17212b";g.beginPath();g.arc(64,64,54,0,7);g.fill();g.fillStyle="#fff";g.font="bold 72px sans-serif";g.textAlign="center";g.textBaseline="middle";g.fillText(l,64,68);
+    const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthWrite:false}));sp.scale.set(2.4,2.4,1);
+    sp.position.set(23.5*Math.sin(az*RAD),1.3,-23.5*Math.cos(az*RAD));sc.add(sp)});
+  V3.sun=new THREE.Mesh(new THREE.SphereGeometry(1.6,24,16),new THREE.MeshBasicMaterial({color:0xffd75e}));sc.add(V3.sun);
+  V3.path=new THREE.Line(new THREE.BufferGeometry(),new THREE.LineDashedMaterial({color:0xffe08a,dashSize:1,gapSize:0.8,transparent:true,opacity:.85}));sc.add(V3.path);
+  V3.house=new THREE.Group();sc.add(V3.house);
+  const tex=(()=>{const c=document.createElement("canvas");c.width=64;c.height=104;const g=c.getContext("2d");g.fillStyle="#13213d";g.fillRect(0,0,64,104);g.strokeStyle="#3d5684";g.lineWidth=1;
+    for(let i=1;i<6;i++){g.beginPath();g.moveTo(i*64/6,0);g.lineTo(i*64/6,104);g.stroke()}for(let j=1;j<10;j++){g.beginPath();g.moveTo(0,j*10.4);g.lineTo(64,j*10.4);g.stroke()}
+    g.strokeStyle="#c9d2dc";g.lineWidth=3;g.strokeRect(1,1,62,102);const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t})();
+  V3.mat={wall:new THREE.MeshStandardMaterial({color:0xece6dc,roughness:.9}),trim:new THREE.MeshStandardMaterial({color:0xffffff,roughness:.7}),
+    glass:new THREE.MeshStandardMaterial({color:0x2c4a66,roughness:.15,metalness:.4}),door:new THREE.MeshStandardMaterial({color:0x6b4a32,roughness:.7}),
+    panel:new THREE.MeshStandardMaterial({map:tex,roughness:.35,metalness:.25}),batt:new THREE.MeshStandardMaterial({color:0xf4f6f8,roughness:.5}),
+    dark:new THREE.MeshStandardMaterial({color:0x2a3138,roughness:.6}),pole:new THREE.MeshStandardMaterial({color:0x6e5640,roughness:.9}),level:new THREE.MeshBasicMaterial({color:C3.batt}),
+    roof:{dark:new THREE.MeshStandardMaterial({color:0x3b3f45,roughness:.85}),medium:new THREE.MeshStandardMaterial({color:0x8a6a55,roughness:.85}),light:new THREE.MeshStandardMaterial({color:0xc9bba5,roughness:.85}),white:new THREE.MeshStandardMaterial({color:0xf2f2ee,roughness:.8})}};
+  V3.particles=new THREE.Group();sc.add(V3.particles);
+  V3.labels={};["pv","batt","home","grid"].forEach(k=>{const d=document.createElement("div");d.className="lab";wrap.appendChild(d);V3.labels[k]=d});
+  const resize=()=>{const w=wrap.clientWidth,h=wrap.clientHeight;if(!w||!h)return;r.setSize(w,h,false);V3.camera.aspect=w/h;V3.camera.updateProjectionMatrix()};
+  new ResizeObserver(resize).observe(wrap);resize();
+  let last=performance.now();
+  const loop=now=>{const dt=Math.min(0.1,(now-last)/1000);last=now;
+    if(playing){S.hour=(S.hour+dt*2)%24;$("hour").value=S.hour;timeUpdate(true)}
+    tickParticles(dt);V3.controls.update();r.render(sc,V3.camera);placeLabels();requestAnimationFrame(loop)};
+  requestAnimationFrame(loop);return true}
+function disposeGroup(g){while(g.children.length){const c=g.children.pop();disposeGroup(c);if(c.geometry)c.geometry.dispose()}}
+function box3(w,h,d,mat,x,y,z,parent){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m}
+function build3D(){
+  if(!V3.renderer)return;const g=M.g,p=S,H=V3.house;disposeGroup(H);
+  const W=g.Wm,D=g.Dm,Hw=g.Hm,pr=p.roof==="flat"?0:p.pitch*RAD,mat=V3.mat,story=Hw/p.stories;
+  H.rotation.y=Math.PI-p.front*RAD;H.updateMatrixWorld(true);
+  box3(W,Hw,D,mat.wall,0,Hw/2,0,H);
+  for(let s=1;s<p.stories;s++)box3(W+0.06,0.12,D+0.06,mat.trim,0,s*story,0,H);
+  FAC.forEach(k=>{const f=g.f[k],len=f.len*0.3048,areaM=f.win*0.0929,per=Math.max(0,Math.round(areaM/(1.2*1.4)/p.stories)),n=Math.min(per,Math.floor(len/1.8));
+    for(let s=0;s<p.stories;s++)for(let i=0;i<n;i++){const u=-len/2+len*(i+1)/(n+1),y=s*story+story*0.55,ww=1.2,wh=1.4,t=0.08;
+      if(k==="front")box3(ww,wh,t,mat.glass,u,y,D/2+0.03,H);else if(k==="back")box3(ww,wh,t,mat.glass,-u,y,-D/2-0.03,H);
+      else if(k==="s2")box3(t,wh,ww,mat.glass,W/2+0.03,y,-u,H);else box3(t,wh,ww,mat.glass,-W/2-0.03,y,u,H)}});
+  box3(1.0,2.1,0.1,mat.door,-W*0.3,1.05,D/2+0.04,H);
+  const rm=mat.roof[p.roofColor],ov=0.45;let pvParts=[];
+  if(p.roof==="flat")box3(W+0.3,0.3,D+0.3,rm,0,Hw+0.15,0,H);
+  else{const rise=p.roof==="gable"?D/2*Math.tan(pr):D*Math.tan(pr);
+    const shp=new THREE.Shape();if(p.roof==="gable"){shp.moveTo(-D/2,0);shp.lineTo(D/2,0);shp.lineTo(0,rise);shp.lineTo(-D/2,0)}else{shp.moveTo(-D/2,0);shp.lineTo(D/2,0);shp.lineTo(D/2,rise);shp.lineTo(-D/2,0)}
+    const eg=new THREE.ExtrudeGeometry(shp,{depth:W,bevelEnabled:false});eg.rotateY(Math.PI/2);eg.translate(-W/2,0,0);
+    const att=new THREE.Mesh(eg,mat.wall);att.position.y=Hw;att.castShadow=true;att.receiveShadow=true;H.add(att);
+    const slab=(cz,cy,len,sign,key,eave)=>{const grp=new THREE.Group();grp.position.set(0,cy,cz);grp.rotation.x=sign*pr;grp.userData={key,eave};H.add(grp);
+      const s=new THREE.Mesh(new THREE.BoxGeometry(W+2*ov,0.14,len),rm);s.castShadow=true;s.receiveShadow=true;grp.add(s);return grp};
+    if(p.roof==="gable"){const Ls=D/2/Math.cos(pr)+ov,cy=Hw+rise/2-ov/2*Math.sin(pr)+0.1,cz=D/4+ov/2*Math.cos(pr);
+      pvParts=[slab(cz,cy,Ls,1,"front",1),slab(-cz,cy,Ls,-1,"back",-1)]}
+    else pvParts=[slab(0,Hw+rise/2+0.1,D/Math.cos(pr)+2*ov,1,"shed",1)]}
+  H.updateMatrixWorld(true);
+  const alloc=allocate(M,S.panels||0);const acc=new THREE.Vector3();let pvCount=0;
+  alloc.forEach((n,f)=>{if(!n)return;
+    if(f.key==="flat"){const grp=new THREE.Group();grp.position.y=Hw+0.3;grp.rotation.y={front:0,back:Math.PI,s2:Math.PI/2,s1:-Math.PI/2}[f.dir];H.add(grp);
+      const pitchRow=PANEL.h*Math.cos(10*RAD)+0.6,rows=Math.ceil(n/f.cols);
+      for(let i=0;i<n;i++){const r=Math.floor(i/f.cols),c=i%f.cols,inRow=Math.min(f.cols,n-r*f.cols);
+        const pm=new THREE.Mesh(new THREE.BoxGeometry(PANEL.w,0.04,PANEL.h),mat.panel);pm.position.set((c-(inRow-1)/2)*(PANEL.w+0.02),0.35,((rows-1)/2-r)*pitchRow);pm.rotation.x=10*RAD;pm.castShadow=true;grp.add(pm)}
+      grp.updateMatrixWorld(true);acc.add(new THREE.Vector3(0,0.5,0).applyMatrix4(grp.matrix).multiplyScalar(n));pvCount+=n}
+    else{const grp=pvParts.find(gp=>gp.userData.key===f.key);if(!grp)return;const rows=Math.ceil(n/f.cols),e=grp.userData.eave;
+      for(let i=0;i<n;i++){const r=Math.floor(i/f.cols),c=i%f.cols,inRow=Math.min(f.cols,n-r*f.cols);
+        const pm=new THREE.Mesh(new THREE.BoxGeometry(PANEL.w,0.05,PANEL.h),mat.panel);pm.position.set((c-(inRow-1)/2)*(PANEL.w+0.02),0.11,e*(((rows-1)/2-r)*(PANEL.h+0.02)+0.15));pm.castShadow=true;grp.add(pm)}
+      acc.add(new THREE.Vector3(0,0.3,0).applyMatrix4(grp.matrix).multiplyScalar(n));pvCount+=n}});
+  const pvLocal=pvCount?acc.multiplyScalar(1/pvCount):new THREE.Vector3(0,Hw+1.5,0);
+  const xw=W/2,inv=new THREE.Vector3(xw+0.13,1.75,-D/4+1.1),bat=new THREE.Vector3(xw+0.2,0.7,-D/4),meter=new THREE.Vector3(xw+0.08,1.5,D/2-1.0),poleTop=new THREE.Vector3(xw+7,8.4,D/2+4);
+  box3(0.5,0.65,0.2,mat.batt,inv.x,inv.y,inv.z,H).rotation.y=Math.PI/2;
+  V3.battBox=box3(0.28,1.25,0.8,mat.batt,bat.x,0.63,bat.z,H);
+  V3.battLevel=new THREE.Mesh(new THREE.BoxGeometry(0.02,1,0.12),mat.level);V3.battLevel.position.set(bat.x+0.15,0.6,bat.z+0.25);H.add(V3.battLevel);
+  V3.battVis=(S.batt||0)>0;V3.battBox.visible=V3.battLevel.visible=V3.battVis;
+  box3(0.15,0.45,0.3,mat.dark,meter.x,meter.y,meter.z,H);
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.17,9,10),mat.pole);pole.position.set(poleTop.x,4.5,poleTop.z);pole.castShadow=true;H.add(pole);
+  box3(0.14,0.14,2.2,mat.pole,poleTop.x,8.6,poleTop.z,H);
+  const wire=new THREE.QuadraticBezierCurve3(poleTop.clone().add(new THREE.Vector3(0,0.2,0)),new THREE.Vector3((poleTop.x+meter.x)/2,Math.max(meter.y+1.5,Hw*0.85),(poleTop.z+meter.z)/2),meter.clone().add(new THREE.Vector3(0.05,0.2,0)));
+  H.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(wire.getPoints(30)),new THREE.LineBasicMaterial({color:0x1d232a})));
+  const inside=new THREE.Vector3(xw-2,1.3,0),curve=pts=>new THREE.CatmullRomCurve3(pts,false,"centripetal");
+  V3.flows={
+    pv:{curve:curve([pvLocal.clone(),new THREE.Vector3(xw+0.25,Hw+0.3,clamp(pvLocal.z,-D/2+0.6,D/2-0.6)),new THREE.Vector3(xw+0.25,inv.y+0.6,inv.z),inv.clone()]),color:C3.solar},
+    home:{curve:curve([inv.clone(),new THREE.Vector3(xw-0.4,inv.y-0.2,inv.z),inside.clone()]),color:C3.solar},
+    batt:{curve:curve([inv.clone(),new THREE.Vector3(xw+0.3,1.4,(inv.z+bat.z)/2),bat.clone().add(new THREE.Vector3(0,0.55,0))]),color:C3.batt},
+    grid:{curve:curve([...wire.getPoints(8),new THREE.Vector3(xw-0.5,1.4,meter.z),inside.clone()]),color:C3.grid}};
+  disposeGroup(V3.particles);V3.particles.rotation.y=H.rotation.y;
+  Object.values(V3.flows).forEach(f=>{f.dots=[];f.phase=Math.random();f.kW=0;f.dir=1;f.mat=new THREE.MeshBasicMaterial({color:f.color});
+    for(let i=0;i<22;i++){const s=new THREE.Mesh(new THREE.SphereGeometry(0.14,10,8),f.mat);s.visible=false;V3.particles.add(s);f.dots.push(s)}});
+  V3.anchor={pv:pvLocal.clone().add(new THREE.Vector3(0,1.2,0)),batt:bat.clone().add(new THREE.Vector3(0.3,1.3,0)),home:new THREE.Vector3(-W*0.3,Math.max(2.8,Hw*0.8),D/2),grid:poleTop.clone().add(new THREE.Vector3(0,0.9,0))};
+  V3.controls.target.set(0,Hw*0.6,0);V3.pathKey=null;
+  {const size=Math.max(W,D,Hw*1.3);if(!V3.lastSize||Math.abs(size-V3.lastSize)/V3.lastSize>0.25){const d=V3.camera.position.clone().sub(new THREE.Vector3(0,3,0)).normalize();
+    V3.camera.position.copy(d.multiplyScalar(Math.max(42,size*2.6))).add(new THREE.Vector3(0,Hw*0.4,0));V3.controls.maxDistance=Math.max(110,size*5)}V3.lastSize=size}
+  timeUpdate(false)}
+function tickParticles(dt){if(!V3.flows)return;Object.values(V3.flows).forEach(f=>{
+  const n=f.kW>0.03?clamp(Math.round(f.kW*3),2,22):0;f.phase=(f.phase+dt*0.35)%1;
+  f.dots.forEach((d,i)=>{if(i>=n){d.visible=false;return}let t=(f.phase+i/n)%1;if(f.dir<0)t=1-t;d.position.copy(f.curve.getPointAt(t));d.visible=true})})}
+function placeLabels(){if(!V3.anchor)return;const wrap=$("sceneWrap"),w=wrap.clientWidth,h=wrap.clientHeight;
+  for(const k in V3.labels){const lab=V3.labels[k];if(k==="batt"&&!V3.battVis){lab.style.display="none";continue}
+    const v=V3.house.localToWorld(V3.anchor[k].clone()).project(V3.camera);
+    if(v.z>1){lab.style.display="none";continue}lab.style.display="";lab.style.transform=`translate(${(v.x+1)/2*w}px,${(1-v.y)/2*h}px) translate(-50%,-115%)`}}
+
+// ---------- time / flows ----------
+let playing=false;
+function cur(m,h){const D=SIM.D,i=Math.floor(h)%24;return {prod:D.prod[m][i],direct:D.direct[m][i],batt:D.batt[m][i],grid:D.grid[m][i],charge:D.charge[m][i],exp:D.exp[m][i],soc:D.soc[m][i],load:M.total[m][i],ac:M.L.cool[m][i],heat:M.L.heat[m][i]}}
+function setHour(t){S.hour=t;$("hour").value=t;timeUpdate(true)}
+function timeUpdate(light){
+  const m=S.month,t=S.hour,c=cur(m,t),cap=S.batt||0;
+  const d=decl(KLEIN[m]),sv=sunVec(M.latR,d,t);const alt=Math.asin(clamp(sv.up,-1,1))/RAD,az=(Math.atan2(sv.east,sv.north)/RAD+360)%360;
+  $("hudTime").textContent=fmtHour(t);
+  $("hudSub").textContent=`${MON[m]} · ${alt>0?`sun ${fmt(alt)}° up in the ${compassName(az)}`:"sun below the horizon"} · solar time`;
+  const socPct=Math.round(c.soc*100);
+  const battState=!cap?"no battery":c.charge>0.02?`charging ${fmt(c.charge,1)} kW`:c.batt>0.02?`powering home ${fmt(c.batt,1)} kW`:socPct<=S.reserve+1?"at reserve, waiting for sun":"full, standing by";
+  const gridState=c.grid>0.02?`buying ${fmt(c.grid,1)} kW`:c.exp>0.02?`selling ${fmt(c.exp,1)} kW`:"not needed";
+  $("flowgrid").innerHTML=[
+    ["Solar panels","var(--s-solar)",`${fmt(c.prod,1)} kW`,S.panels?`${S.panels} panels`:"no panels"],
+    ["Home uses","var(--muted)",`${fmt(c.load,1)} kW`,c.ac>0.05?`AC is ${fmt(c.ac,1)} kW of that`:c.heat>0.05?`heating is ${fmt(c.heat,1)} kW`:"lights, appliances, water"],
+    ["Battery","var(--s-batt)",cap?`${socPct}%`:"—",battState],
+    ["Grid","var(--s-grid)",c.grid>0.02?`${fmt(c.grid,1)} kW`:c.exp>0.02?`−${fmt(c.exp,1)} kW`:"0 kW",gridState]
+  ].map(r=>`<div class="flow"><div class="k"><i style="background:${r[1]}"></i>${r[0]}</div><div class="v">${r[2]}</div><div class="s">${r[3]}</div></div>`).join("");
+  let story;
+  if(c.prod>0.05&&c.prod>=c.load){story=`The panels make <b>${fmt(c.prod,1)} kW</b>, more than the house needs (<b>${fmt(c.load,1)} kW</b>). `+(c.charge>0.02?`The extra <b>${fmt(c.charge,1)} kW</b> is filling the battery (${socPct}% full)`:cap?`The battery is already full`:`There is no battery to store the extra`)+(c.exp>0.02?`, and <b>${fmt(c.exp,1)} kW</b> goes out to the grid for credit.`:".")}
+  else if(c.prod>0.05){story=`The panels make <b>${fmt(c.prod,1)} kW</b>, but the house needs <b>${fmt(c.load,1)} kW</b>. `+(c.batt>0.02?`The battery covers <b>${fmt(c.batt,1)} kW</b> of the gap`:"")+(c.grid>0.02?`${c.batt>0.02?" and the":"The"} grid supplies <b>${fmt(c.grid,1)} kW</b>.`:".")}
+  else{story=`No sun. The house needs <b>${fmt(c.load,1)} kW</b>. `+(c.batt>0.02?`The battery supplies <b>${fmt(c.batt,1)} kW</b> and is ${socPct}% full.`+(c.grid>0.02?` The grid adds <b>${fmt(c.grid,1)} kW</b>.`:""):cap?`The battery is at its ${S.reserve}% backup reserve, so the grid supplies <b>${fmt(c.grid,1)} kW</b> until the sun comes back.`:`Without a battery, the grid supplies all <b>${fmt(c.grid,1)} kW</b>.`)}
+  $("nowText").innerHTML=story;
+  moveHeads();
+  if(!V3.renderer||!V3.flows)return;
+  const dir=new THREE.Vector3(sv.east,sv.up,-sv.north).normalize();
+  V3.sun.position.copy(dir.clone().multiplyScalar(48));V3.sun.visible=sv.up>-0.02;
+  V3.sunLight.position.copy(dir.clone().multiplyScalar(60));V3.sunLight.intensity=clamp(sv.up*3,0,1.15);
+  V3.hemi.intensity=0.12+0.5*clamp(sv.up*3+0.15,0,1);
+  const day=new THREE.Color(0xbcd8ee),dusk=new THREE.Color(0xf0b98a),nite=new THREE.Color(0x0f1724);
+  const sky=sv.up>0.15?day:sv.up>0?dusk.clone().lerp(day,sv.up/0.15):nite.clone().lerp(dusk,clamp(1+sv.up/0.1,0,1));
+  V3.scene.background=sky;$("sceneWrap").style.background="#"+sky.getHexString();
+  const key=m+":"+M.lat;if(V3.pathKey!==key){V3.pathKey=key;const pts=[];for(let h=0;h<=24;h+=0.25){const s=sunVec(M.latR,d,h);if(s.up>0)pts.push(new THREE.Vector3(s.east,s.up,-s.north).normalize().multiplyScalar(48))}
+    V3.path.geometry.dispose();V3.path.geometry=new THREE.BufferGeometry().setFromPoints(pts.length>1?pts:[new THREE.Vector3(),new THREE.Vector3()]);V3.path.computeLineDistances()}
+  const F=V3.flows;F.pv.kW=c.prod;F.home.kW=c.direct+c.batt;F.home.mat.color.setHex(c.batt>c.direct?C3.batt:C3.solar);
+  F.batt.kW=c.charge+c.batt;F.batt.dir=c.charge>=c.batt?1:-1;
+  F.grid.kW=c.grid+c.exp;F.grid.dir=c.grid>=c.exp?1:-1;F.grid.mat.color.setHex(c.exp>c.grid?C3.solar:C3.grid);
+  if(V3.battLevel){const lv=Math.max(0.02,c.soc);V3.battLevel.scale.y=lv;V3.battLevel.position.y=0.1+lv/2}
+  const L=V3.labels;
+  L.pv.innerHTML=`<i style="background:#f2b705"></i><b>Solar</b>${fmt(c.prod,1)} kW`;
+  L.home.innerHTML=`<i style="background:#e4e8ec"></i><b>Home</b>${fmt(c.load,1)} kW`;
+  L.batt.innerHTML=`<i style="background:#22c58b"></i><b>Battery</b>${socPct}%${c.charge>0.02?` ▲ ${fmt(c.charge,1)} kW`:c.batt>0.02?` ▼ ${fmt(c.batt,1)} kW`:""}`;
+  L.grid.innerHTML=`<i style="background:#4b9bff"></i><b>Grid</b>${c.grid>0.02?`buying ${fmt(c.grid,1)} kW`:c.exp>0.02?`selling ${fmt(c.exp,1)} kW`:"idle"}`}
+
+// ---------- rendering ----------
+const area=ft=>S.unit==="m"?`${fmt(ft*0.0929)} m²`:`${fmt(ft)} ft²`;
+const facLabel=(k,g)=>k==="int"?"No outside wall":`${{front:"Front",back:"Back",s1:"Side",s2:"Side"}[k]} (${compassName(g.f[k].az)})`;
+function renderRooms(g){
+  const box=$("rooms");const focus=document.activeElement&&document.activeElement.id;
+  const typing=box.contains(document.activeElement)&&box.children.length===S.rooms.length;
+  if(!typing)box.innerHTML=S.rooms.map((r,i)=>`<div class="room"><input type="text" id="rn${i}" value="${esc(r.name)}" aria-label="Room name"><input type="number" id="rc${i}" min="1" step="1" value="${r.n||1}" aria-label="How many ${esc(r.name)}"><input type="number" id="ra${i}" min="0" step="${S.unit==="m"?1:10}" value="${S.unit==="m"?Math.round(r.area*0.0929):Math.round(r.area)}" aria-label="Area of ${esc(r.name)}"><select id="rf${i}" aria-label="Which wall ${esc(r.name)} faces">${["front","back","s1","s2","int"].map(k=>`<option value="${k}" ${r.facade===k?"selected":""}>${facLabel(k,g)}</option>`).join("")}</select><button class="x" data-i="${i}" type="button" aria-label="Remove ${esc(r.name)}">×</button></div>`).join("");
+  if(!typing&&focus&&/^r[nacf]\d+$/.test(focus)&&$(focus))$(focus).focus();
+  $("areaTotal").textContent=`Rooms ${area(g.roomsArea)} + ${S.halls}% → home ${area(g.sqft)} · footprint ${area(g.fp)}`}
+function compassSvg(){const a=S.front;$("compassSvg").innerHTML=`<circle r="30" fill="var(--sunk)" stroke="var(--line)"/><text x="0" y="-19" text-anchor="middle" font-size="10" font-weight="700" fill="var(--bad)" font-family="var(--f-mono)">N</text><text x="21" y="4" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="var(--f-mono)">E</text><text x="0" y="26" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="var(--f-mono)">S</text><text x="-21" y="4" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="var(--f-mono)">W</text><g transform="rotate(${a})"><rect x="-9" y="-6" width="18" height="12" rx="1" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/><path d="M0 -7 L0 -17 M-3.5 -13 L0 -17 L3.5 -13" stroke="var(--sun)" stroke-width="2" fill="none"/></g>`}
+
+function fullUpdate(){
+  S.unit=isMetric()?"m":"ft";
+  M=model({...S});setMoney();OPT=optimise(M,S);
+  // the chosen plan is recalculated on every change: best value, 100% of use, or the sizes set by hand
+  if(S.pick==="full"){const n=clamp(fullCount(M).full,0,M.maxP);S.panels=n;S.batt=nightBatt(M,pvHourly(M,n),S.reserve).size}
+  else if(S.pick!=="custom"||S.panels==null){S.panels=OPT.best.panels;S.batt=OPT.best.batt;S.pick="best"}
+  S.panels=clamp(S.panels,0,M.maxP);S.batt=clamp(Math.round((S.batt||0)/M.bStep)*M.bStep,0,M.bMax);
+  renderStatic();selectionUpdate(true)}
+const local=(x,T)=>{if(CX.fx>1)return usdOnly(x);if(!T||!(T.fx>1))return "";const v=x*T.fx;return v>=1e6?`${fmt(v/1e6,1)} million ${T.cur}`:`${fmt(v)} ${T.cur}`};
+function renderPrices(){
+  const p=S,st=M.st,T=M.TF,RD=M.RD,mx=Math.max(...M.useM);
+  const U=M.TOU;$("flatField").hidden=!!T||!!U;$("tierField").hidden=!T;$("touField").hidden=!U;
+  if(U){const k=(1+(+U.vat||0)/100)/U.fx;$("touCur").textContent=`${U.cur}/kWh${U.vat?` + ${U.vat}% VAT`:""}`;
+    [["touOff","off"],["touNorm","norm"],["touPeak","peak"]].forEach(([id,kk])=>{if(document.activeElement!==$(id))$(id).value=U[kk];$(id).step=U.fx>100?10:0.005});
+    $("touHint").textContent=U.src+". "+(M.gridCharge?"Grid charging: the battery fills off-peak with only what solar won't refill, and saves its charge for the peak.":"The battery only stores solar.")}
+  const avgM=M.annual/12;
+  $("priceModeHint").innerHTML=U?`Business price by time of day. Your typical month costs <b>${usd(sum(M.baseBills)/12)}</b>${local(sum(M.baseBills)/12,U)?` (${local(sum(M.baseBills)/12,U)})`:""}, an average of ${ppk(M.price)} per kWh. Peak hours cost ${fmt(U.peak/U.off,1)}× off-peak, which is where a battery pays.`:T?`Price goes up in steps: the more you use in a month, the more each extra kWh costs. Your typical month (${fmt(avgM)} kWh) costs <b>${usd(M.billOf(avgM))}</b>${T.fx>1?` (${local(M.billOf(avgM),T)})`:""}, and every extra kWh costs <b>${ppk(marginal(M,avgM))}</b>${ppkAlt(marginal(M,avgM),T)}. Solar removes the most expensive kWh first.`
+    :(p.priceMode==="auto"?`${st.region} has no stepped tariff in this app, so one average price is used. Pick "Steps" to enter yours.`:"Every kWh costs the same.");
+  if(T){const cur=T.cur||"$",dec=T.fx>100?0:3;
+    $("tierCur").textContent=`${cur}/kWh${T.vat?` + ${T.vat}% VAT`:""}`;$("tierPh").textContent=`${cur} per kWh`;
+    $("tfxLbl").textContent=`${cur} per $1`;$("tfx").disabled=cur==="$";
+    if(!["tvat","tfx"].includes(document.activeElement&&document.activeElement.id)){$("tvat").value=T.vat||0;$("tfx").value=T.fx||1}
+    let prev=0;if(!$("tiers").contains(document.activeElement))$("tiers").innerHTML=T.tiers.map(([up,pr],i)=>{const last=i===T.tiers.length-1,row=`<div class="tier"><span>${last?`Above ${fmt(prev)}`:`${fmt(prev+(i?1:0))} to`}</span>${last?`<span class="hint">and up</span>`:`<input type="number" id="tu${i}" min="0" step="10" value="${up}" aria-label="Step ${i+1} ends at kWh">`}<input type="number" id="tp${i}" min="0" step="${dec?0.005:10}" value="${pr}" aria-label="Step ${i+1} price"><button class="x" data-i="${i}" type="button" aria-label="Remove step ${i+1}" ${T.tiers.length<=1?"disabled":""}>×</button></div>`;if(up!=null)prev=up;return row}).join("");
+    $("tierHint").textContent=(p.priceMode==="tiers"&&p.tiers?"Your own steps. ":"")+(TARIFF[st.region]&&!(p.priceMode==="tiers"&&p.tiers)?TARIFF[st.region].src+". ":"")+"Copy the steps from your bill; the app works out each month's bill step by step."}
+  const fx=T&&T.fx>1?T:(TARIFF[st.region]||null);
+  $("costHint").textContent=CX.fx>1?`Defaults for ${st.region}: ${fmt(RD.costW*1000*CX.fx/1e6,1)} million ${CX.cur} per kWp of solar, ${fmt(RD.costB*CX.fx/1e6,1)} million ${CX.cur} per kWh of battery incl. hybrid inverter (≈ $${RD.costW}/W, $${RD.costB}/kWh). Put in your installer's quote for a better answer.`:`Defaults for ${st.region}: $${RD.costW}/W solar, $${RD.costB}/kWh battery`+(fx?` (≈ ${fmt(RD.costW*1000*fx.fx/1e6,1)} million ${fx.cur}/kWp and ${fmt(RD.costB*fx.fx/1e6,1)} million ${fx.cur}/kWh incl. hybrid inverter)`:"")+`. Put in your installer's quote for a better answer.`}
+// staircase: the price steps, with this home's typical month before and after solar
+function stairs(){
+  const T=M.TF,box=$("stairs");if(!T){box.innerHTML="";return}
+  const before=M.annual/12,after=sum(SIM.impM)/12,tops=T.tiers.map(t=>t[0]).filter(x=>x!=null),lastTop=tops.length?tops[tops.length-1]:0;
+  const xmax=Math.max(lastTop*1.25,before*1.1,lastTop+100),W=320,H=110,ml=6,mr=6,mt=18,mb=20,pw=W-ml-mr,ph=H-mt-mb,pmax=Math.max(...T.tiers.map(t=>t[1]))*1.05;
+  const X=k=>ml+k/xmax*pw,Y=v=>mt+ph-v/pmax*ph;let prev=0,out="";
+  T.tiers.forEach(([up,pr])=>{const a=prev,b=up==null?xmax:Math.min(up,xmax),x0=X(a),x1=X(b),y=Y(pr);
+    out+=`<rect x="${x0+1}" y="${y}" width="${Math.max(0,x1-x0-2)}" height="${mt+ph-y}" rx="2" fill="var(--sunk)" stroke="var(--line)"/>`;
+    if(after<b)out+=`<rect x="${Math.max(x0+1,X(Math.max(a,after)))}" y="${y}" width="${Math.max(0,X(Math.min(b,before))-Math.max(x0+1,X(Math.max(a,after))))}" height="${mt+ph-y}" fill="var(--s-solar)" opacity=".75"/>`;
+    if(a<after)out+=`<rect x="${x0+1}" y="${y}" width="${Math.max(0,X(Math.min(b,after))-x0-2)}" height="${mt+ph-y}" fill="var(--s-grid)" opacity=".75"/>`;
+    prev=up==null?xmax:up});
+  const lab=(k,t,anchor)=>`<line x1="${X(k)}" x2="${X(k)}" y1="${mt-4}" y2="${mt+ph}" stroke="var(--ink)" stroke-width="1.5"/><text x="${X(k)+(anchor==="end"?-3:3)}" y="${mt-6}" font-size="10" text-anchor="${anchor}" fill="var(--ink)" font-family="var(--f-mono)">${t}</text>`;
+  out+=lab(before,`before ${fmt(before)}`,X(before)>W*0.6?"end":"start");
+  if(S.panels&&Math.abs(before-after)>20)out+=lab(after,`after ${fmt(after)}`,X(after)<W*0.3?"start":"end");
+  out+=`<text x="${ml}" y="${H-5}" font-size="10" fill="var(--muted)">0</text><text x="${W-mr}" y="${H-5}" font-size="10" text-anchor="end" fill="var(--muted)">kWh bought in a typical month</text>`;
+  box.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Price steps with your typical month">${out}</svg><div class="legend" style="margin-top:4px"><span><i style="background:var(--s-grid)"></i>still bought from grid</span>${S.panels?`<span><i style="background:var(--s-solar)"></i>replaced by your solar + battery</span>`:""}</div>`}
+function battWhy(p,best){
+  const T=M.TF,er=M.exportRate,cap=M.exportCap,d0=dispatch(M,pvHourly(M,p.panels||0),0,p.reserve,false);
+  if(M.hp){const U=M.TOU,k=(1+(+U.vat||0)/100)/U.fx,dN=dispatch(M,pvHourly(M,p.panels||0),0,p.reserve,false),per=p.batt?(impCost(M,dN)-impCost(M,SIM))/p.batt:0;
+    return `Why a battery here? On the business tariff a kWh costs <b>${ppk(U.peak*k)}</b> at peak (17:30–22:30, Mon–Sat) but ${ppk(U.off*k)} off-peak (0:00–6:00). Solar stops before the peak starts, when guests come back and switch on AC and hot water. The battery stores midday solar${M.gridCharge?" and tops up from the grid off-peak":""}, then runs the building through the peak. `+
+      (p.batt?`Each kWh of this ${fmt(p.batt,1)} kWh battery saves about <b>${usd(per)}/yr</b>, against about ${usd(M.costB)} to buy. `:"")+(best.batt?`The best value includes <b>${fmt(best.batt,1)} kWh</b>.`:`At this price it doesn't pay back.`)}
+  const dk=d0.imp-SIM.imp,dc=impCost(M,d0)-impCost(M,SIM),mg=p.batt&&dk>50?dc/dk:marginal(M,Math.max(d0.imp/12,1));
+  const saveKwh=mg*0.9-(cap<100?er*0.5:er),yr=saveKwh*300;
+  const lc=x=>ppkAlt(x,T);
+  return `Why a battery? A kWh stored at noon replaces a kWh you'd buy at night for about <b>${ppk(mg)}</b>${lc(mg)}${T?" (the price step your night-time kWh fall in)":""}. Without a battery it would be sent out for ${ppk(er)}${cap<100?`, and only up to ${cap}% of what the panels make. Above that it earns nothing`:""}. Used most days, each kWh of battery saves about <b>${usd(yr)}/yr</b>, against about ${usd(M.costB)} to buy (and a replacement after 15 years). `+
+    (best.batt?`That's why the best value includes <b>${fmt(best.batt,1)} kWh</b>.`:`At this price it doesn't pay back on savings alone. It may still be worth it for backup, or with a cheaper quote: change the battery cost in Prices.`)}
+function ruleOfThumb(st){
+  if(st.region==="Vietnam")return {perFt2:600*0.0929,txt:"what Vietnamese shops use: about 600 BTU per m² (9,000 BTU up to 15 m², 12,000 up to 20 m², 18,000 up to 30 m²)"};
+  return {perFt2:25,txt:"the common shop chart (ENERGY STAR room-AC guide): about 20–25 BTU per ft² (215–270 BTU per m²)"}}
+function acOptions(p,g,cl){
+  const st=M.st,heads=M.rooms.filter(r=>r.type!=="bath"),tot=sum(heads.map(r=>r.head*r.n)),tons=M.unit*M.systems,us=US_STATES.has(st.region)&&!M.hotel;
+  const runS=sum(M.L.cool.map((d,m)=>sum(d)*DAYS[m]))*(p.system==="central"?1/1.1:1),runC=runS*1.1;
+  const splitW=tot/(20*0.78*1000)*1000;
+  $("acOpt").innerHTML=`<div class="vcard ${!us?"best":""}"><h4>Split units, one per room ${!us?'<span class="pill good">recommended here</span>':""}</h4>
+    <div class="sz">Inverter wall units. Cool only the rooms you use; no ducts to lose cold air.</div>
+    <ul>${heads.map(r=>`<li>${esc(r.name)}${r.n>1?` (${r.n} rooms)`:""}: <b>${r.n>1?r.n+" × ":""}${fmt(r.head)} BTU</b> (${HP[r.head]} HP, ${fmt(r.head/3412,1)} kW)</li>`).join("")}</ul>
+    <dl style="margin-top:10px"><dt>Total indoor units</dt><dd>${fmt(tot)} BTU</dd><dt>Cooling energy / year</dt><dd>≈ ${fmt(runS)} kWh</dd></dl></div>
+    ${M.hotel?`<div class="vcard"><h4>VRF / VRV system <span class="pill good">common in hotels</span></h4>
+    <div class="sz">One or a few outdoor units on the roof, a small indoor unit in each room, refrigerant pipes instead of ducts. Less roof space and better part-load efficiency than ${heads.reduce((a,r)=>a+r.n,0)} separate splits; higher up-front cost.</div>
+    <ul><li>Indoor units as listed on the left (${fmt(tot)} BTU connected)</li><li>Outdoor capacity about <b>${fmt(M.btu/3412,0)} kW</b> (${fmt(M.btu)} BTU/h): the whole building at its peak hour, ${fmt(M.btu/tot*100)}% of the connected indoor units, because rooms peak at different times and are not all sold.</li></ul></div>`:""}
+    <div class="vcard ${us?"best":""}" ${M.hotel?"hidden":""}><h4>Central ducted system ${us?'<span class="pill good">common here</span>':""}</h4>
+    <div class="sz">One outdoor unit and ducts to every room. Even comfort; needs space for ducts.</div>
+    <ul><li>${M.systems>1?`${M.systems} systems of `:"One "}<b>${tons}-ton</b> unit (${fmt(tons*12000)} BTU/h, ${fmt(tons*12000/3412,1)} kW)</li><li>Sized for the whole house at the same moment (${capBoth(M.btu)} including 10% duct loss), which is less than the sum of the rooms because they peak at different hours.</li></ul>
+    <dl style="margin-top:10px"><dt>Cooling energy / year</dt><dd>≈ ${fmt(runC)} kWh</dd></dl></div>`;
+  $("acRec").innerHTML=(M.hotel?`For hotels, separate splits are cheapest to buy for up to ~20 rooms; VRF saves energy and roof space for larger buildings. Put outdoor units where they won't sit on the roof area you want for panels. `:us?`In the US most homes with ducts use central air; mini-splits suit homes without ducts or additions. `:`In ${st.region}, inverter split units are the standard choice: cheaper to install, no duct losses, and you only cool occupied rooms. `)+`The "Cooling system" switch on the left changes which one the energy and solar numbers use.`+
+    (p.loadMode==="real"&&M.appRows?(()=>{const inst=sum(M.appRows.filter(a=>APPS[a.k]&&APPS[a.k].btu).map(a=>(+a.q||0)*APPS[a.k].btu));return inst?` <b>Your installed AC: ${fmt(inst)} BTU</b>, against about ${fmt(tot)} BTU of split units this house needs room by room.`:""})():"")}
+function howText(p,g,st){
+  const met=MET(),humid=st.humid,duct=p.system==="central";
+  const UA=met?`${fmt(M.UAc*0.5275)} W per °C`:`${fmt(M.UAc)} BTU/h per °F`,cdd=sum(M.cdd),hdd=sum(M.hdd);
+  const dd=x=>met?`${fmt(x*5/9)} °C-days`:`${fmt(x)} °F-days`,sz=met?`${fmt(g.sqft*0.0929)} m² × 6.5 kWh`:`${fmt(g.sqft)} ft² × 0.6 kWh`;
+  const sc=M.scale!==1?` × ${M.scale.toFixed(2)} to match your bills`:"";
+  return {cool:`House heat leak ${UA} (walls, roof, windows, air leaks) × ${dd(cdd)} of cooling a year × 24 h, ÷ AC efficiency SEER2 ${(+p.seer).toFixed(1)}, +${humid?20:5}% for humidity${duct?", +10% duct loss":""}${sc}.`,
+    heat:p.heat==="gas"?"Not electric.":`Heat leak × ${dd(hdd)} of heating a year ÷ ${p.heat==="hp"?`heat pump COP ${M.cop.toFixed(1)}`:"1 (electric resistance)"}${sc}.`,
+    water:`(600 + 550 × ${p.occ} people) kWh a year${p.water==="hpwh"?" ÷ 3 for a heat-pump heater":""}, a bit more in winter${sc}.`,
+    home:`2,200 kWh + 900 × ${p.occ} people + ${sz} (fridge, lights, cooking, laundry, TV, standby)${sc}.`,
+    ev:`${met?fmt(p.ev*1.609)+" km × 0.19 kWh/km":fmt(p.ev)+" mi × 0.3 kWh/mi"}${sc}.`,
+    ...(M.hotel?(()=>{const X=M.extra,on=fmt(X.gN*X.occR,1);return {
+      cool:`Same heat-leak × degree-day method, but guest rooms are cooled only when sold (${fmt(X.occR*100)}% of nights, mostly evening to morning) and corridors aren't cooled: ${fmt(X.coolF*100)}% of a fully cooled building${sc}.`,
+      home:`${X.gN} rooms × (0.6 kWh minibar/standby + ${fmt(X.occR*100)}% sold × 2 kWh TV, lights, kettle, charging) + lobby/restaurant ${fmt(X.cArea*0.0929)} m² × 12 W × 14 h + corridors & stairs ${fmt(X.corr*0.0929)} m² × 3 W × 24 h, a day${sc}.`,
+      water:p.water==="gas"?"Not electric.":`${on} occupied rooms × 70 L a day heated 30 °C (≈2.6 kWh)${p.water==="hpwh"?" ÷ 3 for a heat pump":""}${sc}.`,
+      laundry:`${on} occupied rooms × 1.5 kWh a day (washer, dryer, ironer for sheets and towels), run in daytime${sc}.`}})():{}),
+    lift:M.extra.lifts?`${M.extra.lifts} × ${M.extra.LT.n.toLowerCase()} elevator: ${fmt(M.extra.trips)} trips a day each × ${M.extra.LT.e} mWh per kg·m × ${M.extra.liftKg} kg × ${fmt(M.extra.liftTravel,1)} m average trip (half the ${fmt(M.extra.liftTravel*2,1)} m rise) + standby ${M.extra.LT.sb} W × 24 h (VDI 4707 / ISO 25745-2). Standby is often half the total in small buildings${sc}.`:"",
+    pump:`${fmt(M.extra.waterM3,1)} m³ of water a day lifted ${fmt(M.extra.headM)} m to the roof tank ÷ 45% pump efficiency${sc}.`,pool:`About 2,000 kWh a year, mostly in warm months${sc}.`}}
+function renderLoadExplain(p,g,st){
+  const real=p.loadMode==="real";$("appBox").hidden=!real;
+  $("loadModeNote").innerHTML=real?`List what this home actually has. Watts are on each appliance's label (for fridges, use the average draw, not the label). Hours are per day; for air conditioners, use the hottest month. The app scales AC down in cooler months using the local climate. For the most reliable result, also enter your yearly kWh from your bills on the left: the list is then scaled to match.`
+    :`For a new or planned house: each line below shows the formula and the numbers that go in. For a house that already has its appliances, switch to "My appliances".`;
+  if(real)appTable()}
+function appTable(){
+  if(!M.appRows){$("appTbl").innerHTML="";return}
+  const day=M.order[0]?M.order[0].pp[S.month]:new Array(24).fill(0),dl=day.map(v=>v>0.02);
+  const hrs=Array.from({length:48},(_,i)=>i/2);
+  const focus=document.activeElement&&document.activeElement.id,tb=$("appTbl");
+  if(tb.contains(document.activeElement)&&tb.tBodies[0]&&tb.tBodies[0].rows.length===M.appRows.length){
+    M.appRows.forEach((a,i)=>{const r=tb.tBodies[0].rows[i];r.cells[5].innerHTML=`<div class="tl" title="Orange: runs while the sun is up. Blue: after dark.">${a.w24.map((w,h)=>`<i class="${w>0?"on":""} ${dl[h]?"d":""}" style="${w>0&&w<1?`opacity:${0.4+0.6*w}`:""}"></i>`).join("")}</div>`;
+      r.cells[6].textContent=fmt(a.yr*M.scale/12);r.cells[7].textContent=usd(a.yr*M.scale/12*M.price)});
+    const f=tb.tFoot&&tb.tFoot.rows[0];if(f){f.cells[1].innerHTML=`<b>${fmt(M.annual/12)}</b>`;f.cells[2].innerHTML=`<b>${usd(sum(M.baseBills)/12)}</b>`}}
+  else tb.innerHTML=`<thead><tr><th>Appliance</th><th class="n">How many</th><th class="n">Watts</th><th class="n">Hours / day</th><th>Starts at</th><th>When it runs (${MON[S.month]})</th><th class="n">kWh / month</th><th class="n">Cost / month</th><th></th></tr></thead><tbody>`+
+    M.appRows.map((a,i)=>`<tr><td><input class="nm" id="an${i}" value="${esc(a.n)}" aria-label="Appliance name"></td><td><input class="num" type="number" id="aq${i}" min="0" step="1" value="${a.q}" aria-label="How many"></td><td><input class="num" type="number" id="aw${i}" min="0" step="10" value="${a.w}" aria-label="Watts"></td><td><input class="num" type="number" id="ah${i}" min="0" max="24" step="0.25" value="${a.h}" aria-label="Hours per day"></td><td><select id="as${i}" aria-label="Starts at">${hrs.map(t=>`<option value="${t}" ${Math.abs(t-a.s)<0.01?"selected":""}>${fmtHour(t)}</option>`).join("")}</select></td><td><div class="tl" title="Orange: runs while the sun is up. Blue: after dark.">${a.w24.map((w,h)=>`<i class="${w>0?"on":""} ${dl[h]?"d":""}" style="${w>0&&w<1?`opacity:${0.4+0.6*w}`:""}"></i>`).join("")}</div></td><td class="n">${fmt(a.yr*M.scale/12)}</td><td class="n">${usd(a.yr*M.scale/12*M.price)}</td><td><button class="x" data-i="${i}" type="button" aria-label="Remove ${esc(a.n)}">×</button></td></tr>`).join("")+
+    `</tbody><tfoot><tr><td colspan="6"><b>Total</b>${M.scale!==1?` (scaled ×${M.scale.toFixed(2)} to match your bills)`:""}</td><td class="n"><b>${fmt(M.annual/12)}</b></td><td class="n"><b>${usd(sum(M.baseBills)/12)}</b></td><td></td></tr></tfoot>`;
+  if(focus&&/^a[nqwhs]\d+$/.test(focus)&&$(focus))$(focus).focus();
+  let night=0,dayE=0;M.appRows.forEach(a=>{const d=a.w24.reduce((s,w,h)=>s+(dl[h]?w:0),0),tot=a.w24.reduce((s,w)=>s+w,0)||1;dayE+=a.yr*d/tot;night+=a.yr*(1-d/tot)});
+  const movable=M.appRows.filter(a=>["wash","dryer","dish","wh","pump","iron","ev","pool"].includes(a.k)&&a.w24.some((w,h)=>w>0&&!dl[h]));
+  $("appNote").innerHTML=`About <b>${fmt(dayE/(dayE+night||1)*100)}%</b> of this home's electricity is used while the sun is up, so solar can supply it directly. The other ${fmt(night/(dayE+night||1)*100)}% comes after dark, which is what a battery is for.`+
+    (movable.length?` Tip: ${movable.map(a=>esc(a.n.toLowerCase())).join(", ")} could run between 10:00 and 15:00 instead, using free solar power without a bigger battery.`:"")}
+function seedApps(){
+  const vn=M.st.region==="Vietnam",L=[];const add=(k,q=1,o={})=>{const A=APPS[k];L.push({k,n:A.n,q,w:A.w,h:A.h,s:A.s,...o})};
+  if(M.hotel){const X=M.extra,o=X.occR,q4=v=>Math.round(v*4)/4;
+    M.rooms.filter(r=>r.type!=="bath").forEach(r=>{const k=r.head<=9000?"ac9":r.head<=12000?"ac12":r.head<=18000?"ac18":"ac24";
+      add(k,r.n,{n:`${APPS[k].n.split(" (")[0].replace("Air conditioner","AC")} – ${r.name}`,...(TYPES[r.type].hotel?{h:q4(10*o),s:20}:{h:12,s:8})})});
+    if(X.gN){add("minibar",X.gN);add("tv",X.gN,{h:q4(4*o)});add("lights",X.gN,{n:"Guest room lights",w:60,h:q4(5*o)});add("kettle",X.gN,{h:q4(0.15*o)})}
+    if(S.water!=="gas"&&X.gN)add("wh",X.gN,{n:"Water heater per room",h:q4(1*o),s:19});
+    add("corr",1,{w:Math.round(X.corr*0.0929*3)});add("lights",1,{n:"Lobby & restaurant lights, plugs",w:Math.round(X.cArea*0.0929*12),h:14,s:7});
+    if(S.laundry&&X.gN)add("washc",Math.max(1,Math.ceil(X.gN/25)),{h:q4(Math.min(10,X.gN*o*1.5/3/Math.max(1,Math.ceil(X.gN/25))))});
+    if(X.lifts)add("lift",X.lifts,{w:Math.round((X.liftRun+X.liftSb)/X.lifts*1000/24)});
+    add("pump",1,{w:1500,h:Math.max(0.5,q4(X.pumpDay/1.5))});add("router",1,{n:"Wi-Fi, reception PC, cameras",w:150});add("fridge",2,{n:"Kitchen fridges"});
+    return L}
+  if(S.system==="central"&&!vn)add("central",M.unit*M.systems);
+  else M.rooms.filter(r=>["living","bedroom","office","dining"].includes(r.type)).forEach(r=>{const k=r.head<=9000?"ac9":r.head<=12000?"ac12":r.head<=18000?"ac18":"ac24";
+    add(k,1,{n:`${APPS[k].n.split(" (")[0].replace("Air conditioner","AC")} – ${r.name}`,...(r.type==="bedroom"?{h:9,s:21}:r.type==="office"?{h:8,s:9}:{h:6,s:17})})});
+  add("fridge");add("lights");add("tv");add("router");add("wash");add("pc");add("cook");add("kettle");
+  if(vn){add("rice");add("pump");add("fan",2)}else{add("dish");add("micro")}
+  if(S.water!=="gas")add("wh");if(S.heat!=="gas"&&!vn&&M.hdd.reduce((a,b)=>a+b,0)>1500)add("heater");
+  if(S.ev)add("ev",1,{h:Math.max(0.5,Math.round(S.ev*0.3/365/7*4)/4)});if(S.pool)add("pool");
+  return L}
+function waterfall(p){
+  const f=M.order[0];if(!f){$("wf").innerHTML="";return}
+  const areaM2=PANEL.w*PANEL.h,eff=p.panelW/(areaM2*1000),sunH=f.poa/365,ideal=p.panelW/1000*sunH;
+  const sys=(1-p.loss/100),inv=0.96,sh=SHADE_PV[p.shade],afterSys=ideal*sys,afterInv=afterSys*inv,afterSh=afterInv*sh,final=f.yield/365,tLoss=afterSh-final;
+  const peak=Math.max(...f.pp.flat())*1000;
+  let clear=0;for(let m=0;m<12;m++){const I=irr(M.latR,m,0.72,f.tilt,f.az);clear=Math.max(clear,Math.max(...I))}
+  const clearW=p.panelW*clear/1000*(1-p.loss/100)*0.96*sh*(1-0.0035*20);
+  const R=[[`Sun on your roof: ${fmt(sunH,1)} full-sun hours a day`,`${fmt(sunH,1)} kWh per m² a day, so ${p.panelW} W × ${fmt(sunH,1)} h`,ideal,"var(--sun)"],
+    [`Wiring, dust, mismatch, small shading (−${p.loss}%)`,"PVWatts default losses",afterSys,"var(--s-solar)"],
+    ["Inverter, DC → AC (−4%)","96% efficient",afterInv,"var(--s-solar)"],
+    ...(sh<1?[[`Shade from trees (−${fmt((1-sh)*100)}%)`,"your shade setting",afterSh,"var(--s-solar)"]]:[]),
+    [`Hot panels (−${fmt(tLoss/afterSh*100)}%)`,"−0.35% per °C above 25°C",final,"var(--s-batt)"]];
+  $("wf").innerHTML=R.map(r=>`<div class="r"><div><b>${r[0]}</b><div class="hint">${r[1]}</div></div><div class="b"><i style="left:0;width:${r[2]/ideal*100}%;background:${r[3]}"></i></div><div class="v">${fmt(r[2],2)} kWh/day</div></div>`).join("");
+  $("wfNote").innerHTML=`<b>No, we don't multiply by 20–30%.</b> Panel efficiency (about ${fmt(eff*100)}% for a ${fmt(areaM2,2)} m², ${p.panelW} W panel) is already inside the ${p.panelW} W label: it means ${p.panelW} W under full sun of 1,000 W per m² at 25°C. A full-sun hour gives ${p.panelW} Wh before losses. In practice one panel here gives about <b>${fmt(clearW)} W</b> at noon on a clear day (${fmt(clearW/p.panelW*100)}% of the label) and about ${fmt(peak)} W at noon on an average day once clouds are counted, and makes <b>${fmt(final,2)} kWh a day</b> on average (${fmt(f.yield)} kWh a year). That is ${fmt(final/(p.panelW/1000*24)*100)}% of what it would make running at ${p.panelW} W around the clock, because the sun is low or absent most hours.`}
+function verdict(p){
+  const run=(n,b)=>{const d=dispatch(M,pvHourly(M,n),b,p.reserve,false);return econ(M,p,n,b,d)};
+  const c0=OPT.curves[0];let nb=0;c0.forEach((v,i)=>{if(v>c0[nb]+1)nb=i});
+  const best=OPT.best,base=sum(M.baseBills),A=run(nb,0);
+  let bn=best.panels,bb=best.batt;if(!bb){bn=nb||best.panels||Math.min(M.maxP,10);bb=clamp(nightBatt(M,pvHourly(M,bn),p.reserve).size,M.bStep,M.bMax)}
+  const W=run(bn,bb),N=run(bn,0),extra=W.save-N.save,bcost=bb*M.costB*(1-p.incent/100),bpay=extra>0?bcost/extra:null;
+  const TX=M.TF&&M.TF.fx>1?M.TF:TARIFF[M.st.region]||null,mo=x=>usd(x)+(TX?`<div class="hint">${local(x,TX)}</div>`:"");
+  const card=(t,sz,o,isBest)=>`<div class="vcard ${isBest?"best":""}"><h4>${t}</h4><div class="sz">${sz}</div><div class="bill">${usd(Math.max(o.cost,0)/12)}<small> /month</small></div>${TX?`<div class="hint">${local(Math.max(o.cost,0)/12,TX)} a month</div>`:""}<div class="bbar"><i style="width:${Math.max(0,o.cost)/base*100}%"></i></div>
+    <dl><dt>Up-front</dt><dd>${usd(o.capex)}</dd><dt>Saves</dt><dd>${usd(o.save)}/yr</dd><dt>Pays back in</dt><dd>${o.capex?(o.payback?fmt(o.payback,1)+" yrs":"over 25 yrs"):"—"}</dd><dt>25-yr gain</dt><dd>${o.capex?usd(o.npv):"—"}</dd></dl></div>`;
+  $("vgrid").innerHTML=card("Do nothing","Keep buying all power from the grid.",{cost:base,capex:0,save:0,npv:0},false)+
+    card("Solar only",nb?`${nb} panels · ${fmt(nb*p.panelW/1000,1)} kW`:"Doesn't pay back at these prices",A,!best.batt&&nb>0)+
+    card("Solar + battery",`${bn} panels + ${fmt(bb,1)} kWh battery${best.batt?"":" (for comparison)"}`,W,best.batt>0);
+  $("verdictH").textContent=`Is solar worth it for this ${M.hotel?"hotel":"house"}?`;
+  $("verdictTag").textContent=(M.hotel?"Hotel":"Home")+(p.loadMode==="real"?" · from the appliance list":" · estimate");
+  const pill=(ok,t)=>`<span class="pill ${ok?"good":"warn"}">${t}</span>`;
+  const solarTxt=nb>0?`${pill(true,"Solar: yes")}<span><b>${nb} panels</b> cost ${mo(A.capex).replace(/<div class="hint">(.*?)<\/div>/," ($1)")} and cut the bill from ${usd(base/12)} to ${usd(Math.max(A.cost,0)/12)} a month. They pay for themselves in <b>${A.payback?fmt(A.payback,1):"25+"} years</b>; after that the power is nearly free for another ${A.payback?fmt(Math.max(0,25-A.payback)):0}+ years.</span>`
+    :`${pill(false,"Solar: not at these prices")}<span>Each panel would save less than it costs over 25 years. Check your price per kWh and get a quote. A lower installed-cost quote or a rebate can change this.</span>`;
+  const why=M.hp?`On the time-of-day tariff the battery's job is the evening peak at ${ppk(M.TOU.peak*(1+M.TOU.vat/100)/M.TOU.fx)}/kWh, not storing surplus.`:M.metering==="net"?"Net metering already credits exported solar at the full price, so storing it saves little.":`A stored kWh saves the night-time price minus what an exported kWh earns (${ppk(M.exportRate)}${M.exportCap<100?`, and only up to ${M.exportCap}% of output can be sold at all`:""}).`;
+  const battTxt=best.batt>0?`${pill(true,"Battery: yes")}<span>A <b>${fmt(bb,1)} kWh</b> battery adds ${usd(bcost)} and saves another <b>${usd(extra)}/yr</b> ${M.hp?"by running the building through the evening peak":"by keeping midday solar for the evening"}. On its own it pays back in <b>${bpay?fmt(bpay,1):"—"} years</b>, inside its ~15-year life. ${why}</span>`
+    :`${pill(false,"Battery: not for savings")}<span>A ${fmt(bb,1)} kWh battery would cost ${usd(bcost)} and save only ${usd(Math.max(0,extra))}/yr${bpay?`, about ${fmt(bpay)} years to pay back, longer than it lasts (~15 years)`:""}. ${why} Buy one for backup during outages, not to save money.</span>`;
+  const realTxt=p.loadMode==="real"?`<li>${pill(true,M.hotel?"This hotel":"Your home")}<span>Based on your appliance list (${fmt(M.annual/12)} kWh a month).${M.scale!==1?" Scaled to your bills.":" Add your yearly kWh from bills on the left to make this exact."}</span></li>`:"";
+  let full=0,got=0;for(const f of M.order){const need=(M.annual-got)/f.yield;if(need<=f.cap){full+=Math.ceil(need);got=M.annual;break}full+=f.cap;got+=f.cap*f.yield}
+  const big=best.panels>full*1.15&&full>0?(()=>{const c=OPT.curves[best.batt]||c0,v100=c[Math.min(full,c.length-1)],add=(best.panels-full)*p.panelW*M.costW*(1-p.incent/100);
+    return `<li>${pill(true,"Size")}<span>About <b>${full} panels</b> cover 100% of your yearly use. The best-value ${best.panels} works only because extra power can still be sold: the last ${best.panels-full} panels cost ${usd(add)} more up-front and raise the 25-year gain by only ${usd(best.npv-v100)}. If you'd rather keep it simple or can't sell power, ${full} panels is the sensible size ("Cover 100% of use").</span></li>`})():"";
+  $("verdict").innerHTML=`<li>${solarTxt}</li><li>${battTxt}</li>${big}${realTxt}`}
+function renderStatic(){
+  const p=S,g=M.g,st=M.st,cl=M.cl;
+  if(document.activeElement!==$("city"))$("city").value=p.cityLabel;
+  $("frontOut").textContent=`${compassName(p.front)} · ${p.front}°`;compassSvg();
+  $("pitchOut").textContent=MET()?`${p.pitch}°`:`${p.pitch}° · ${fmt(Math.tan(p.pitch*RAD)*12,1)}/12`;
+  $("ceilSeg").querySelectorAll("button").forEach(b=>b.textContent=MET()?`${fmt(b.dataset.v*0.3048,1)} m`:`${b.dataset.v} ft`);
+  $("areaUnit").textContent=MET()?"m²":"ft²";
+  $("insulHint").textContent=st.region==="Vietnam"?"Most houses in Vietnam have brick or concrete walls with no insulation and single glass: pick Older unless yours was built with insulation.":"Older = no wall insulation, single glass. New build = current energy code.";
+  const real=p.loadMode==="real";["waterField","evField","poolField"].forEach(id=>$(id).hidden=real);$("realHint").hidden=!real;if(real)$("evTimeField").hidden=true;$("pitchField").hidden=p.roof==="flat";
+  $("storiesOut").textContent=p.stories;$("roofUseOut").textContent=(p.roofUse||100)+"%";$("liftsOut").textContent=p.lifts?p.lifts:"none";$("liftTypeField").hidden=!p.lifts;
+  const H=M.hotel,X=M.extra;$("occField").hidden=H;$("hotelFields").hidden=!H;$("liveHead").textContent=H?"How the hotel runs":"How you live";$("hOccOut").textContent=(p.hOcc||0)+"%";
+  $("hotelHint").textContent=H?(X.gN?`${X.gN} guest rooms → about ${fmt(X.gN*X.occR*1.8)} guests a night + ${X.staff} staff. Add "Guest room" rows in Rooms with how many of each.`:`Add "Guest room" rows in Rooms (set how many of each).`):"";$("aspectOut").textContent=(+p.aspect).toFixed(1);
+  $("hallsOut").textContent=p.halls+"%";$("occOut").textContent=p.occ;
+  $("setpointOut").textContent=MET()?fmt((p.setpoint-32)/1.8,1)+"°C":p.setpoint+"°F";$("seerOut").textContent=(+p.seer).toFixed(1);
+  $("evOut").textContent=p.ev?(MET()?fmt(Math.round(p.ev*1.609/100)*100)+" km/yr":fmt(p.ev)+" mi/yr"):"none";$("evTimeField").hidden=!p.ev||p.loadMode==="real";
+  moneyInputs();
+  $("priceHint").textContent=`Average for ${st.region}: ${ppk(st.price)}/kWh. ${+p.price>0?"Using your price.":"Using the average."}`;
+  $("exportCap").placeholder=M.RD.exportCap;
+  renderPrices();
+  $("meterHint").textContent=(p.metering==="auto"?`Local rule for ${st.region}: ${M.RD.rule}. `:"")+(M.metering==="net"?"Exports offset imports 1:1 over the year. A yearly surplus is paid at the export rate.":"Every kWh you export earns the export rate. This is like California NEM 3.0, most of Europe, or self-use systems in Vietnam (set the rate to 0 if you get nothing).")+(M.metering!=="net"&&M.exportCap<100?` Only up to ${M.exportCap}% of what the panels produce can be sold; the rest is wasted unless a battery stores it.`:"")+` Empty boxes use local values: ${ppk(M.exportRate)}/kWh export, ${M.exportCap}% export cap.`;
+  renderRooms(g);
+  const hem=st.lat<0?-1:1,psh=MON.map((_,m)=>st.psh*(1+st.pa*hem*Math.cos(2*Math.PI*(m-5.5)/12))),mx=Math.max(...psh);
+  $("sunstrip").innerHTML=psh.map((v,m)=>`<i style="height:${v/mx*100}%" title="${MON[m]}: ${v.toFixed(1)} sun-hours/day"></i>`).join("");
+  const cn=$("climateNote");cn.classList.remove("err");
+  if(p.coord){const dkm=haversine(p.coord.lat,p.coord.lon,st.lat,st.lon);
+    cn.innerHTML=`Your point: ${p.coord.lat.toFixed(4)}, ${p.coord.lon.toFixed(4)}. Sun angles use this exact spot. Weather comes from <b>${st.label}</b>, ${fmt(dkm)} km away${dkm>300?". That is far, so treat the weather as rough":""}.`}
+  else cn.textContent=`${st.label}: ${st.psh.toFixed(1)} sun-hours/day on average. Hottest month averages ${tF(cl.T[cl.hot])}; design day ${tF(cl.Tdes)}.`;
+  $("acTons").innerHTML=MET()?`${fmt(M.btu/3412,1)}<small>kW of cooling</small>`:`${fmt(M.need,1)}<small>tons</small>`;
+  $("acUnit").innerHTML=`${capBoth(M.btu)}${MET()?` · ${fmt(M.need,1)} tons`:""} at the hottest hour (${fmtHour(M.peakHour)}) of a ${tF(cl.Tdes)} design day. See "Which system to buy" below.`;
+  acOptions(p,g,cl);
+  const cool=sum(M.L.cool.map((d,m)=>sum(d)*DAYS[m]));
+  const M2=model({...S,setpoint:S.setpoint+1}),c2=sum(M2.L.cool.map((d,m)=>sum(d)*DAYS[m]));
+  $("acKv").innerHTML=[["Cooling per year",fmt(cool)+" kWh"],["Cooling cost",usd(cool*M.price)+"/yr"],["Power draw running",fmt(M.unit*M.systems*12000/(p.seer*0.78*1000),1)+" kW"],[MET()?"Each 1°C warmer saves":"Each 1°F warmer saves",cool>0?fmt((1-c2/cool)*100*(MET()?1.8:1))+"%":"—"]]
+    .map(r=>`<div><div class="k">${r[0]}</div><div class="v">${r[1]}</div></div>`).join("");
+  const maxc=Math.max(...M.comp.map(c=>c[1]));
+  $("acReceipt").innerHTML=M.comp.map(c=>`<tr><td>${c[0]}<span class="bar ${c[2]==="sun"?"sunb":""}" style="width:${Math.max(2,c[1]/maxc*100)}%"></span></td><td>${fmt(MET()?c[1]/3.412:c[1])}</td></tr>`).join("")+`<tr class="total"><td>Cooling load (${MET()?"W":"BTU/h"})</td><td>${fmt(MET()?M.btu/3.412:M.btu)}</td></tr>`;
+  let bestA=p.front,bestB=M.btu;for(let a=0;a<360;a+=45){if(a===p.front)continue;const t=model({...S,front:a});if(t.btu<bestB-1){bestB=t.btu;bestA=a}}
+  const sunShare=sum(M.comp.filter(c=>c[2]==="sun").map(c=>c[1]))/M.btu;
+  $("orientTip").innerHTML=`Sunshine on walls, glass and roof makes up <b>${fmt(sunShare*100)}%</b> of the peak load (orange bars). `+(bestB<M.btu*0.98?`If the front faced <b>${compassName(bestA)}</b>, the peak would drop ${fmt((1-bestB/M.btu)*100)}%. You can't turn a house, but this shows which walls most need shade, awnings or better glass.`:`Your orientation is already close to the best for cooling.`);
+  if(p.heat==="hp"){const capH=M.unit*M.systems*12000*M.capAt(cl.Twin),ok=capH>=M.heatDesign;
+    $("heatCheck").innerHTML=`Heating check: on a ${tF(cl.Twin)} winter design night the house needs ${cap(M.heatDesign)}. This heat pump gives about ${cap(capH)} at that temperature. <span class="pill ${ok?"good":"warn"}">${ok?"covers it":"needs backup heat or a cold-climate model"}</span>`}
+  else $("heatCheck").textContent=`Heating need on a ${tF(cl.Twin)} design night: ${capBoth(M.heatDesign)}.`;
+  const RT=ruleOfThumb(st),ruleHead=a=>{const b=RT.perFt2*a;return HEADS.find(x=>x>=b*0.95)||36000};
+  let tot=0,totR=0;$("roomTbl").innerHTML=`<thead><tr><th>Room</th><th class="n">Area</th><th>Wall faces</th><th class="n">Peak load</th><th class="n">Peak time</th><th class="n">Split unit (our calc)</th><th class="n">Shop rule of thumb</th></tr></thead><tbody>`+
+    M.rooms.map(r=>{tot+=r.head*r.n;const rh=ruleHead(r.area);totR+=rh*r.n;return `<tr><td>${esc(r.name)}${r.n>1?` <span class="hint">× ${r.n}</span>`:""}</td><td class="n">${area(r.area)}</td><td>${facLabel(r.facade,g)}</td><td class="n">${cap(r.load)}</td><td class="n">${fmtHour(r.hour)}</td><td class="n"><b>${fmt(r.head)} BTU</b> · ${HP[r.head]} HP</td><td class="n">${fmt(rh)} BTU${rh>r.head?' <span class="pill warn">bigger</span>':rh<r.head?' <span class="pill warn">smaller</span>':""}</td></tr>`}).join("")+
+    `</tbody><tfoot><tr><td colspan="5"><b>${sum(M.rooms.map(r=>r.n))} rooms</b> · halls and baths share air with the rooms around them</td><td class="n"><b>${fmt(tot)} BTU</b></td><td class="n">${fmt(totR)} BTU</td></tr></tfoot>`;
+  $("roomNote").innerHTML=`Split units come in fixed sizes: 9,000 BTU (1 HP), 12,000 (1.5 HP), 18,000 (2 HP), 24,000 (2.5 HP). Our size comes from each room's walls, windows, the direction they face and the sun at each hour. The shop rule of thumb is ${RT.txt}. It only looks at floor area, so it can be too big for a shaded room and too small for a west-facing one with lots of glass.`;
+  const yr=k=>sum(M.L[k].map((d,m)=>sum(d)*DAYS[m]));
+  renderLoadExplain(p,g,st);
+  const U=[{k:"cool",name:"Cooling",color:"var(--u-cool)"},{k:"heat",name:"Heating",color:"var(--u-heat)"},{k:"home",name:M.hotel?"Rooms, lights, hot water, laundry, lifts":"Home, appliances, hot water",color:"var(--u-home)",parts:["home","water","laundry","lift","pump"]},{k:"ev",name:"Car & pool",color:"var(--u-ev)",parts:["ev","pool"]}]
+    .map(u=>({...u,values:MON.map((_,m)=>sum((u.parts||[u.k]).map(k=>sum(M.L[k][m])*DAYS[m])))})).filter(u=>sum(u.values)>1);
+  legend($("useLegend"),U);stackChart($("useChart"),U,null,"kWh");
+  const annual=M.annual,cost=annual*M.price;
+  const rows=[["Cooling",yr("cool"),"cool"],[p.loadMode==="real"?"Heating":"Heating"+(p.heat==="hp"?` (heat pump, COP ${M.cop.toFixed(1)})`:p.heat==="res"?" (electric)":" (not electric)"),yr("heat"),"heat"],["Hot water",yr("water"),"water"],[M.hotel?"Guest rooms, lobby & corridor lights, plugs":"Lights, appliances, electronics",yr("home"),"home"],["Laundry",yr("laundry"),"laundry"],["Elevators",yr("lift"),"lift"],["Water pumping to the roof tank",yr("pump"),"pump"],["Electric car",yr("ev"),"ev"],["Pool pump",yr("pool"),"pool"]]
+    .filter(r=>r[1]>1||(r[2]==="heat"&&p.loadMode!=="real"));
+  const HOW=p.loadMode==="real"?{}:howText(p,g,st);
+  $("useTbl").innerHTML=`<thead><tr><th>Use</th>${p.loadMode==="real"?"":"<th>How it's worked out</th>"}<th class="n">kWh / year</th><th class="n">Share</th><th class="n">Cost / year</th><th class="n">Per month</th></tr></thead><tbody>`+
+    rows.map(r=>`<tr><td>${r[0]}</td>${p.loadMode==="real"?"":`<td class="how">${HOW[r[2]]||""}</td>`}<td class="n">${fmt(r[1])}</td><td class="n">${fmt(r[1]/annual*100)}%</td><td class="n">${usd(r[1]*M.price)}</td><td class="n">${usd(r[1]*M.price/12)}</td></tr>`).join("")+
+    `<tr><td><b>Total</b></td>${p.loadMode==="real"?"":"<td></td>"}<td class="n"><b>${fmt(annual)}</b></td><td class="n">100%</td><td class="n"><b>${usd(cost)}</b></td><td class="n"><b>${usd(cost/12)}</b></td></tr></tbody>`;
+  $("useNote").textContent=(M.hotel?`${fmt(M.annual/Math.max(1,M.extra.gN*M.extra.occR*365),1)} kWh per occupied room-night. `:"")+(M.scale!==1?`Scaled to match your bills: ${p.loadMode==="real"?"your appliance list adds up to":"our estimate was"} ${fmt(M.modelled)} kWh a year, so every use is multiplied by ${M.scale.toFixed(2)}. `:"")+`Priced at your average of ${ppk(M.price)}/kWh${M.TF?" (stepped tariff)":M.hp?" (time-of-day tariff)":""}.`;
+  $("months").innerHTML=MON.map((mn,m)=>`<button type="button" data-m="${m}" aria-pressed="${m===S.month}">${mn}</button>`).join("");
+  renderMethods()}
+
+function selectionUpdate(rebuild){
+  const p=S,P=pvHourly(M,p.panels||0);SIM=dispatch(M,P,p.batt||0,p.reserve,true);EC=econ(M,p,p.panels||0,p.batt||0,SIM);
+  $("panels").max=M.maxP;$("batt").max=M.bMax;$("batt").step=M.bStep;$("panels").value=p.panels;$("batt").value=p.batt;
+  $("panelsOut").textContent=`${p.panels} · ${fmt(EC.kW,1)} kW`;$("battOut").textContent=p.batt?fmt(p.batt,1)+" kWh":"none";
+  const best=OPT.best,bd=dispatch(M,pvHourly(M,best.panels),best.batt,p.reserve,false),bestE=econ(M,p,best.panels,best.batt,bd);
+  [["snapOpt","best"],["snap100","full"]].forEach(([id,k])=>$(id).setAttribute("aria-pressed",String(S.pick===k)));$("pickCustom").hidden=S.pick!=="custom";
+  let full=0,got=0;for(const f of M.order){const need=(M.annual-got)/f.yield;if(need<=f.cap){full+=Math.ceil(need);got=M.annual;break}full+=f.cap;got+=f.cap*f.yield}
+  S._full=full;const fullFits=got>=M.annual-1;
+  $("optText").innerHTML=best.panels>0?`Best value here: <b>${best.panels} panels</b> (${fmt(best.panels*p.panelW/1000,1)} kW)${best.batt?` + <b>${fmt(best.batt,1)} kWh</b> battery`:", no battery"}. Pays back in <b>${bestE.payback?fmt(bestE.payback,1)+" years":"over 25 years"}</b>, worth <b>${usd(best.npv)}</b> in today's money.`
+    :`With these prices, solar <b>doesn't pay back</b> here. Try your own price, a lower installed-cost quote or a rebate.`;
+  $("npvSub").textContent=`(battery ${p.batt?fmt(p.batt,1)+" kWh":"none"} · roof fits ${M.maxP}${fullFits?"":" · not enough roof for 100%"})`;
+  stairs();
+  npvChart($("npvChart"),OPT.curves[p.batt]||OPT.curves[0],best.batt===p.batt?best.panels:null,p.panels,fullFits?full:null);
+  const alloc=allocate(M,p.panels);
+  $("faceTbl").innerHTML=`<thead><tr><th>Roof face</th><th class="n">Faces</th><th class="n">Tilt</th><th class="n">kWh per panel / yr</th><th class="n">Fits</th><th class="n">Panels used</th></tr></thead><tbody>`+
+    M.g.faces.map(f=>`<tr><td>${f.name}</td><td class="n">${compassName(f.az)} ${Math.round(f.az)}°</td><td class="n">${Math.round(f.tilt)}°</td><td class="n">${fmt(f.yield)}</td><td class="n">${f.cap}</td><td class="n">${alloc.get(f)||0}</td></tr>`).join("")+"</tbody>";
+  const SRC=[{name:"Solar, used directly",color:"var(--s-solar)",values:SIM.mo.direct},{name:"From battery",color:"var(--s-batt)",values:SIM.mo.batt},{name:"From grid",color:"var(--s-grid)",values:SIM.mo.grid}].filter(s=>sum(s.values)>0.5);
+  legend($("srcLegend"),[...SRC,...(p.panels?[{name:"Solar produced",color:"var(--ink)",line:true}]:[])]);
+  stackChart($("srcChart"),SRC,p.panels?{name:"Solar produced",color:"var(--ink)",values:SIM.mo.prod}:null,"kWh");
+  const prod=sum(SIM.mo.prod),selfUse=Math.max(0,sum(SIM.mo.prod)-sum(SIM.mo.exp)),annual=M.annual,cost=annual*M.price;
+  $("solarMinis").innerHTML=[
+    ["System",`${fmt(EC.kW,1)} kW`,`${p.panels} × ${p.panelW} W ${p.panels>M.maxP*0.9?'<span class="pill warn">near roof limit</span>':""}`],
+    ["Produces",`${fmt(prod)} kWh`,`${fmt(prod/annual*100)}% of your yearly use`],
+    [M.hotel?"Used on site":"Used at home",`${fmt(prod?selfUse/prod*100:0)}%`,`${fmt(SIM.exp)} kWh sent to grid`],
+    ["Up-front cost",usd(EC.capex),p.incent?`after ${p.incent}% incentives`:"before any rebate"],
+    ["Bill after",usd(Math.max(EC.cost,0)/12)+"/mo",`was ${usd(cost/12)}/mo${EC.cost<0?` · ${usd(-EC.cost)}/yr credit`:""}`],
+    ["Payback",EC.payback?fmt(EC.payback,1)+" yrs":(p.panels||p.batt?"over 25 yrs":"—"),`25-yr net gain ${usd(EC.lifetime)}`]
+  ].map(r=>`<div class="mini"><div class="k">${r[0]}</div><div class="v">${r[1]}</div><div class="s">${r[2]}</div></div>`).join("");
+  const NB=nightBatt(M,P,p.reserve),avgNight=NB.avgNight,evening=NB.size,backupKwh=Math.ceil(p.ess*p.hours/2.5)*2.5;
+  $("essOut").textContent=fmt(p.ess,1)+" kW";$("hoursOut").textContent=p.hours+" h";
+  $("battReceipt").innerHTML=[["For best value (bill savings vs cost)",best.batt?fmt(best.batt,1)+" kWh":"none"],
+    [`To run evenings & nights on your own solar (on average ${fmt(avgNight,1)} kWh a day isn't covered by the sun)`,p.panels?fmt(evening,1)+" kWh":"add panels first"],
+    [`For backup: ${fmt(p.ess,1)} kW essentials × ${p.hours} h`,fmt(backupKwh,1)+" kWh"]].map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")+
+    `<tr class="total"><td>Your choice (slider in the Solar section)</td><td>${p.batt?fmt(p.batt,1)+" kWh":"none"}</td></tr>`;
+  $("battNote").innerHTML=M.metering==="net"?`With 1:1 net metering, the grid stores your extra solar for free, so a battery saves little money. Buy one for backup, or in case your utility moves to export credits. Each kWh of battery costs about ${usd(M.costB)}.`
+    :battWhy(p,best);
+  const acKW=M.unit*M.systems*12000/(p.seer*0.78*1000),usable=p.batt||0;
+  const covE=usable/p.ess,covAC=usable/(p.ess+0.5*acKW);
+  $("backupMinis").innerHTML=[["Essentials only",p.batt?fmt(covE,1)+" h":"no battery",Math.min(1,covE/p.hours),`target ${p.hours} h · starting full`],["Essentials + AC",p.batt?fmt(covAC,1)+" h":"no battery",Math.min(1,covAC/p.hours),`AC draws ${fmt(acKW,1)} kW, running about half the time`]]
+    .map(r=>`<div class="mini"><div class="k">${r[0]}</div><div class="v">${r[1]}</div><div class="s">${r[3]}</div><div class="gauge"><i style="width:${r[2]*100}%"></i></div></div>`).join("");
+  $("strip").innerHTML=[["AC size",MET()?`${fmt(M.btu/3412,1)} kW`:(p.system==="central"?`${M.unit*M.systems} tons`:`${M.rooms.length} heads`),MET()?`${fmt(M.btu)} BTU/h`:`${fmt(M.btu)} BTU/h`],["Use per year",`${fmt(annual)} kWh`,`${usd(cost)}/yr · ${usd(cost/12)}/mo`],
+    ["Solar",`${p.panels} panels`,`${fmt(EC.kW,1)} kW · ${fmt(prod/annual*100)}% of use`],["Battery",p.batt?`${fmt(p.batt,1)} kWh`:"None",p.batt?`${fmt(covE,0)} h of essentials`:(best.batt?`best value: ${fmt(best.batt,1)} kWh`:"doesn't pay on savings here")],
+    ["Payback",EC.payback?`${fmt(EC.payback,1)} yrs`:"—",`saves ${usd(EC.save)}/yr`]].map(r=>`<div><div class="k">${r[0]}</div><div class="v">${r[1]}</div><div class="s">${r[2]}</div></div>`).join("");
+  $("monthTbl").innerHTML=`<thead><tr><th>Month</th><th class="n">Avg ${MET()?"°C":"°F"}</th><th class="n">Cooling kWh</th><th class="n">Heating kWh</th><th class="n">Total kWh</th><th class="n">Bill before</th><th class="n">Solar kWh</th><th class="n">From battery</th><th class="n">From grid</th><th class="n">Sent out</th></tr></thead><tbody>`+
+    MON.map((mn,m)=>{const tk=sum(M.total[m])*DAYS[m];return `<tr><td>${mn}</td><td class="n">${MET()?fmt((M.cl.T[m]-32)/1.8):fmt(M.cl.T[m])}</td><td class="n">${fmt(sum(M.L.cool[m])*DAYS[m])}</td><td class="n">${fmt(sum(M.L.heat[m])*DAYS[m])}</td><td class="n">${fmt(tk)}</td><td class="n">${usd(M.baseBills[m])}</td><td class="n">${fmt(SIM.mo.prod[m])}</td><td class="n">${fmt(SIM.mo.batt[m])}</td><td class="n">${fmt(SIM.mo.grid[m])}</td><td class="n">${fmt(SIM.mo.exp[m])}</td></tr>`}).join("")+"</tbody>";
+  waterfall(p);verdict(p);if(p.loadMode==="real")appTable();
+  updateDayTag();
+  legend($("dayLegend"),[{name:"Home powered by solar",color:"var(--s-solar)"},{name:"by battery",color:"var(--s-batt)"},{name:"by grid",color:"var(--s-grid)"},...(p.panels?[{name:"Solar produced",color:"var(--ink)",line:true}]:[])]);
+  dayCharts();
+  if(rebuild&&V3.renderer)build3D();else timeUpdate(false);
+  persist()}
+function updateDayTag(){$("dayTag").textContent=`${MON[S.month]} · ${S.panels} panels · ${S.batt?fmt(S.batt,1)+" kWh battery":"no battery"}`}
+
+function renderMethods(){
+  const R=[
+    ["AC size (cooling load)","Heat gains at the hottest hour of a design day, room by room: heat through walls, roof and glass (U × area × ΔT), sunshine through windows (solar heat gain coefficient × sun on each wall, by direction), sun heating the outside of walls and roof (sol-air temperature), air leaks, people and appliances, humidity, ducts.","ACCA Manual J, 8th ed. (ANSI/ACCA 2). US building code (IRC M1401.3) requires installers to use it.","Same structure, simplified. Manual J uses a table value for each wall, window and roof product, plus measured air leakage. We use typical values for the insulation and window choices you pick."],
+    ["Design temperatures","Indoor 75°F (24°C) for cooling, 70°F (21°C) for heating. The outdoor design day is estimated from the city's hottest and coldest months plus a typical daily swing. Hourly temperatures follow the ASHRAE daily-range profile.","ASHRAE Handbook—Fundamentals climate tables (1% cooling and 99% heating design temperatures), as used in Manual J.","Close, not exact. We estimate the design temperature instead of reading the station's published value, so expect a few degrees of difference."],
+    ["Equipment size","Smallest standard size (1.5–5 tons, or 6k–36k BTU/h heads) that covers at least 95% of the load.","ACCA Manual S: roughly 95–115% of the load for AC, up to 125% for heat pumps in cold climates.","Same rule. We don't use \"500 ft² per ton\" rules of thumb. They ignore climate, sun and insulation and usually oversize, and an oversized unit cycles on and off too often and leaves the air damp."],
+    ["Split units vs rule of thumb","Each room is sized from its own walls, windows, the direction they face, sun at every hour, people, appliances and humidity, then rounded up to the next standard size (9k, 12k, 18k, 24k BTU). The shop rule (≈600 BTU/m² in Vietnam, 20–25 BTU/ft² on the ENERGY STAR chart) is shown next to it.","ACCA Manual J room-by-room loads; manufacturers' selection guides for ductless units.","Same structure as Manual J. Area-only rules are what shops use; they ignore orientation and insulation and usually oversize, which costs more and dehumidifies poorly."],
+    ["Load of an existing home","Your appliance list: how many × watts × hours a day, placed at the hours they run. Air conditioners are entered for the hottest month and scaled to other months by cooling degree-days; heaters by heating degree-days. If you enter yearly kWh from bills, the list is scaled to match.","Energy auditors do a walk-through inventory like this, then calibrate to 12 months of bills (ASHRAE Guideline 14 for calibration).","Same idea. Calibration to bills is the step that makes it reliable; without it, hours of use are guesses."],
+    ["Hotels","Guest rooms are cooled only when sold (your occupancy %, mostly evening to morning) and corridors aren't cooled. Hot water ≈70 L per occupied room a day; plugs, TV and minibar per room; lobby lights 12 W/m² for 14 h; corridor and stair lights 3 W/m² around the clock; laundry 1.5 kWh per occupied room. In Vietnam, hotels pay EVN's business price by time of day.","Hotel energy audits (ASHRAE Level 1–2) work from metered sub-loads and occupancy records; ASHRAE Handbook—HVAC Applications (hotels, service water heating).","Simplified benchmarks. Enter 12 months of bills (yearly kWh) or use the appliance list to calibrate: hotels vary a lot with star rating, kitchen and laundry."],
+    ["Elevators","Energy a day = trips × specific running energy × rated load × average trip length, plus standby power × 24 h. Trips ≈ 6 per occupied room + 40 for staff (hotels) or 6 per person (homes). Rated load 630 kg (hotel) or 320 kg (home lift); average trip about half the rise.","VDI 4707 Part 1 energy classes and ISO 25745-2 (energy calculation for lifts). Running energy 0.8–2.8 mWh per kg·m; standby 50–150 W.","Same method as the standards, with typical values for each lift type instead of the manufacturer's measured figures."],
+    ["Time-of-day tariff","Each hour's price follows Vietnam's business tariff: off-peak 0:00–6:00, peak 17:30–22:30 Mon–Sat (6 days in 7), normal otherwise, plus VAT. The battery keeps enough charge for the peak, and (if allowed) charges off-peak from the grid with only what solar won't refill.","EVN Decision 1279/QĐ-BCT prices; time bands in Decision 963/QĐ-BCT (22 Apr 2026). Battery designers use full-year hourly simulation with the same rules.","Same rules on one typical day per month. Sundays are treated as 1/7 of each peak hour at the normal price."],
+    ["Sun position & sunlight on each surface","Sun angle for every hour of a typical day in each month at your exact latitude. Sunlight is split into direct and diffuse light (Erbs correlation), then projected onto every wall and roof face (isotropic-sky model).","Duffie & Beckman, Solar Engineering of Thermal Processes. NREL PVWatts and SAM use the same geometry with hourly typical-year weather (TMY) and the more detailed Perez sky model.","Same physics, less data. We use one average day per month instead of 8,760 real hours. The isotropic sky slightly understates sun on tilted surfaces, typically by a few percent."],
+    ["Solar production","No extra efficiency factor: the panel's watt rating already includes its ~20–22% efficiency (watts at 1,000 W/m² sun, 25°C). Output = panels × watts × sunlight on that roof face × (1 − 14% system losses) × 96% inverter × heat loss (−0.35% per °C above 25°C cell temperature) × tree shade.","NREL PVWatts default system losses (14%) and inverter efficiency (96%). The temperature coefficient comes from typical panel datasheets.","Same approach as PVWatts. Real output varies ±5–10% from year to year with the weather."],
+    ["Roof space","Panels of 1.13 × 1.72 m with clear walkways at the ridge and edges. Flat roofs use 10° racks with gaps so rows don't shade each other.","Fire-access pathways in IRC R324.6 / IFC (18–36 in.). Installers lay out each panel on a drawing of your actual roof.","Simplified. We assume a clean rectangle with no vents, chimneys or skylights, so your roof may fit fewer panels."],
+    ["Yearly heating & cooling energy","Variable-base degree-day method: heat from the sun and appliances lowers the outdoor temperature at which the AC has to start. Day-to-day temperature spread around each monthly average is included statistically. kWh = heat removed ÷ SEER2 for cooling, or ÷ heat pump COP for heating.","ASHRAE Handbook—Fundamentals, energy-estimating chapter; Erbs, Klein & Beckman degree-day estimation; SEER2 from the DOE test procedure (10 CFR 430, 2023). Energy raters (HERS) use hourly simulation such as EnergyPlus, BEopt or REM/Rate.","A recognised simplified method. Hourly simulation handles the building's heat storage and part-load running better; expect ±15–25%. Entering your yearly kWh from bills calibrates the estimate."],
+    ["Battery behaviour","Hour by hour: solar runs the home first, then fills the battery, and anything left goes to the grid. At night the battery runs the home down to your backup reserve, then the grid takes over until the sun comes back. 90% round-trip efficiency. Power limit about half the capacity per hour (minimum 3.8 kW).","Self-consumption mode, the default on home batteries such as Tesla Powerwall or Enphase IQ. Designers use NREL SAM or vendor tools with a full year of hourly load data and your actual tariff.","Same logic on one typical day per month. Real weeks include cloudy days, so real battery use is a bit lower. Time-of-use tariffs aren't modelled yet, and they can make a battery pay much better."],
+    ["Best value","Tests every panel count the roof fits against battery sizes from 0 to 40 kWh. Each combination is scored by net present value: 25 years of savings (price +3% a year, panels −0.5% a year, discounted at 5%) minus the cost and a battery replacement at year 15.","Discounted cash-flow analysis, as in NREL SAM and installer proposals.","Standard method. The result depends heavily on your price, the export credit and the installed cost, which you can change in the assumptions."],
+    ["Electricity prices & climate","2025 average residential prices for each US state (EIA) and each country (national tariffs, converted to USD). Where the tariff is stepped (Vietnam: EVN's 6 steps from 1,984 to 3,460 ₫/kWh + VAT), each month's bill is worked out step by step, so solar and the battery are credited at the price of the most expensive kWh they replace. You can type your own steps. Installed solar and battery costs and export rules default to typical local market values (for example US ≈ $2.75/W; Vietnam ≈ $0.45/W, $230/kWh battery, surplus at ≈1,100 ₫/kWh capped at 50% of output under Decree 58/2025 as amended by Decree 243/2026). The Vietnam costs are estimates from typical market quotes, not an official source. Climate is typical-year monthly temperature and sunshine for the nearest of 86 cities.","Professionals use your actual tariff and hourly weather for your exact site (NREL NSRDB / TMY).","Simplified so the page works without a live data feed. Stepped tariffs are modelled exactly; time-of-day rates are not yet. Enter your own prices and quotes for accuracy."]];
+  $("methodTbl").innerHTML=`<thead><tr><th>Topic</th><th>What we calculate</th><th>Professional standard</th><th>Same as the pros?</th></tr></thead><tbody>`+R.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("")+"</tbody>"}
+
+// ---------- one-page summary to leave with the homeowner ----------
+function sheetMonthly(){
+  const er=M.exportRate,capF=M.exportCap/100;let bank=0;
+  return MON.map((_,m)=>{const i=SIM.impM[m],x=SIM.expM[m];
+    if(M.hp)return SIM.costM[m]-Math.min(x,(M.metering==="net"?1:capF)*SIM.prodM[m])*er;
+    if(M.metering!=="net")return M.billOf(i)-Math.min(x,capF*SIM.prodM[m])*er;
+    if(!M.TF)return (i-x)*M.flat;
+    const n=i-x-bank;if(n>=0){bank=0;return M.billOf(n)}bank=-n;return 0})}
+function buildSheet(){
+  const p=S,st=M.st,g=M.g,real=p.loadMode==="real",base=sum(M.baseBills),after=sheetMonthly(),aft=sum(after);
+  let meta={};try{meta=JSON.parse(localStorage.getItem("suncoolSheet")||"{}")}catch(e){}
+  const today=new Date().toLocaleDateString(MET()?"en-GB":"en-US",{year:"numeric",month:"long",day:"numeric"});
+  const sys=p.panels?`${p.panels} panels × ${p.panelW} W = ${fmt(EC.kW,1)} kW`+(p.batt?` + ${fmt(p.batt,1)} kWh battery`:", no battery"):"No system chosen";
+  const pickTxt={best:"best value",full:"covers 100% of yearly use",custom:"chosen by hand"}[p.pick]||"";
+  const heads=M.rooms.filter(r=>r.type!=="bath"),tot=sum(heads.map(r=>r.head*r.n)),us=US_STATES.has(st.region)&&!M.hotel;
+  const ac=us&&p.system==="central"?`One central system of ${M.unit*M.systems} tons (${capBoth(M.btu)})`:
+    `Split units: `+heads.map(r=>`${esc(r.name)} ${r.n>1?r.n+" × ":""}${fmt(r.head)} BTU (${HP[r.head]} HP)`).join(" · ")+` (total ${fmt(tot)} BTU)`+(M.hotel?`. Or a VRF system with about ${fmt(M.btu/3412)} kW of outdoor capacity`:"");
+  const U=M.TOU,uk=U?(1+(+U.vat||0)/100)/U.fx:1,T=M.TF,price=U?`${U.src}. Off-peak ${ppk(U.off*uk)}, normal ${ppk(U.norm*uk)}, peak ${ppk(U.peak*uk)} per kWh incl. VAT. Average paid today ${ppk(M.price)}/kWh.`:T?`${T.src||"Stepped tariff"}; ${T.tiers.length} steps from ${fmt(T.tiers[0][1])} to ${fmt(T.tiers[T.tiers.length-1][1])} ${T.cur}/kWh${T.vat?` + ${T.vat}% VAT`:""}. Average paid today ${ppk(M.price)}/kWh.`:`${ppk(M.price)} per kWh${+p.price>0?" (your price)":` (average for ${st.region})`}.`;
+  const exp=M.metering==="net"?"Net metering: exported power offsets bought power 1:1.":`Exported power paid ${ppk(M.exportRate)}/kWh${M.exportCap<100?`, up to ${M.exportCap}% of production`:""}${st.region==="Vietnam"?" (Decree 58/2025, amended by Decree 243/2026)":""}.`;
+  const sp=SIM.mo.prod,rows=MON.map((mn,m)=>{const use=sum(M.total[m])*DAYS[m];return `<tr><td>${mn}</td><td class="n">${fmt(use)}</td><td class="n">${fmt(sp[m])}</td><td class="n">${fmt(SIM.impM[m])}</td><td class="n">${usd(M.baseBills[m])}</td><td class="n">${usd(after[m])}</td></tr>`}).join("");
+  const ver=$("verdict").innerHTML,vg=$("vgrid").innerHTML;
+  $("sheetPage").innerHTML=`
+  <h1 id="shTitle">Solar &amp; battery for your ${M.hotel?"hotel":"home"}</h1>
+  <div style="color:var(--muted)">${esc(p.cityLabel)} · ${today} · ${real?`based on the appliances in your ${M.hotel?"hotel":"home"}`:`estimate for a planned ${M.hotel?"hotel":"house"}`}</div>
+  <div class="meta"><div><label for="shHome">Home / owner</label><input id="shHome" value="${esc(meta.home||"")}" placeholder="Name, address"></div>
+    <div><label for="shBy">Prepared by</label><input id="shBy" value="${esc(meta.by||"")}" placeholder="Your name, phone"></div></div>
+  <div class="big">
+    <div><div class="k">Bill today</div><div class="v">${usd(base/12)}</div><div class="s">a month on average · ${fmt(M.annual/12)} kWh</div></div>
+    <div><div class="k">Bill with the system</div><div class="v">${usd(Math.max(EC.cost,0)/12)}</div><div class="s">a month${EC.cost<-1?` · ${usd(-EC.cost)}/yr credit`:""}</div></div>
+    <div><div class="k">Up-front cost</div><div class="v">${usd(EC.capex)}</div><div class="s">${p.incent?`after ${p.incent}% incentives`:"installed, before any rebate"}</div></div>
+    <div><div class="k">Pays back in</div><div class="v">${EC.payback?fmt(EC.payback,1)+" yrs":"25+ yrs"}</div><div class="s">saves ${usd(EC.save)}/yr · 25-yr gain ${usd(EC.npv)}</div></div>
+  </div>
+  <h2>Proposed system</h2>
+  <p style="margin:0"><b>${sys}</b>${pickTxt?` (${pickTxt})`:""}. Makes about ${fmt(sum(sp))} kWh a year, ${fmt(sum(sp)/M.annual*100)}% of what the ${M.hotel?"hotel":"home"} uses; ${fmt(sum(sp)?Math.max(0,sum(sp)-sum(SIM.mo.exp))/sum(sp)*100:0)}% of it is used on site.</p>
+  <h2>Three choices compared</h2><div class="vgrid">${vg}</div>
+  <ul class="verdict">${ver}</ul>
+  <h2>Month by month with the proposed system</h2>${aft<0||after.some(v=>v<0)?`<p style="margin:0 0 6px;color:var(--muted)">A minus sign means the power sold back earned more than the power bought that month.</p>`:""}
+  <table><thead><tr><th>Month</th><th class="n">Home uses, kWh</th><th class="n">Solar makes, kWh</th><th class="n">Still bought, kWh</th><th class="n">Bill today</th><th class="n">Bill after</th></tr></thead>
+  <tbody>${rows}</tbody><tfoot><tr><td>Year</td><td class="n">${fmt(M.annual)}</td><td class="n">${fmt(sum(sp))}</td><td class="n">${fmt(sum(SIM.impM))}</td><td class="n">${usd(base)}</td><td class="n">${usd(aft)}</td></tr></tfoot></table>
+  <h2>Air conditioning</h2>
+  <p style="margin:0">${ac}. Sized room by room from walls, windows, the direction they face, sun at each hour and humidity (ACCA Manual J method)${real?"":", for the house as described"}.</p>
+  <h2>What these numbers assume</h2>
+  <table><tbody>
+    <tr><td>Electricity price</td><td>${price}</td></tr>
+    <tr><td>Selling extra power</td><td>${exp}</td></tr>
+    <tr><td>Installed cost</td><td>Solar ${CX.fx>1?`${fmt(M.costW*1000*CX.fx/1e6,1)} million ${CX.cur} per kWp`:`$${M.costW.toFixed(2)}/W`}, battery ${usd(M.costB)} per kWh${+p.costW>0||+p.costB>0?" (installer quote)":" (typical local price, not a quote)"}</td></tr>
+    <tr><td>Solar production</td><td>${fmt(Math.abs(M.lat),1)}° latitude, roof facing as shown, ${p.loss}% system losses, 96% inverter, heat losses; about ${fmt(EC.kW?sum(sp)/EC.kW/365:0,1)} kWh per kW per day</td></tr>
+    <tr><td>Over 25 years</td><td>Electricity +${p.esc}%/yr, panels −${p.deg}%/yr, money discounted ${p.disc}%/yr${p.batt?", battery replaced once at year 15":""}</td></tr>
+    ${M.hotel?`<tr><td>Hotel</td><td>${M.extra.gN} guest rooms, ${fmt(M.extra.occR*100)}% sold on average, ${p.stories} floors${M.extra.lifts?`, ${M.extra.lifts} elevator${M.extra.lifts>1?"s":""}`:""}${p.laundry?", laundry on site":""}; ${fmt(M.annual/Math.max(1,M.extra.gN*M.extra.occR*365),1)} kWh per occupied room-night</td></tr>`:""}
+    <tr><td>${M.hotel?"Building's":"Home's"} use</td><td>${fmt(M.annual)} kWh a year${M.scale!==1?", matched to the bills":real?" from the appliance list (not yet checked against bills)":" estimated from the house size and climate"}</td></tr>
+  </tbody></table>
+  <p class="fine">An estimate from a simplified model, not a quote. Weather changes real output by about ±5–10% a year, and real use depends on habits. Methods: NREL PVWatts-style production, hour-by-hour battery use on a typical day each month, ACCA Manual J-style cooling loads. Made with the Cool it, power it planner.</p>`;
+  ["shHome","shBy"].forEach(id=>$(id).addEventListener("input",()=>{try{localStorage.setItem("suncoolSheet",JSON.stringify({home:$("shHome").value,by:$("shBy").value}))}catch(e){}}))}
+let sheetFrom=null;
+$("openSheet").addEventListener("click",()=>{sheetFrom=document.activeElement;buildSheet();$("sheet").hidden=false;document.body.classList.add("sheet-open");$("sheet").scrollTop=0;$("printSheet").focus()});
+const closeSheet=()=>{$("sheet").hidden=true;document.body.classList.remove("sheet-open");if(sheetFrom)sheetFrom.focus()};
+$("closeSheet").addEventListener("click",closeSheet);
+$("sheet").addEventListener("click",e=>{if(e.target.id==="sheet")closeSheet()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("sheet").hidden)closeSheet()});
+$("printSheet").addEventListener("click",()=>{try{window.print()}catch(e){}});
+
+// ---------- wiring ----------
+$("cityList").innerHTML=CITIES.map(c=>`<option value="${c.label}">`).join("");
+$("addType").innerHTML=Object.entries(TYPES).map(([k,t])=>`<option value="${k}">${t.n}</option>`).join("");
+const NUMS=["roofUse","lifts","hOcc","front","pitch","stories","aspect","halls","occ","setpoint","seer","ev","panelW","incent","reserve","esc","disc","loss","deg"];
+function syncInputs(){
+  NUMS.concat(["ess","hours"]).forEach(k=>$(k).value=S[k]);$("hour").value=S.hour;
+  $("pool").checked=S.pool;$("laundry").checked=S.laundry!==false;$("gridCharge").checked=S.gridCharge!==false;$("liftType").value=S.liftType||"std";["billKwh","exportCap"].forEach(k=>$(k).value=S[k]);moneyInputs();$("city").value=S.cityLabel;
+  if(S.coord)$("coords").value=`${S.coord.lat.toFixed(4)}, ${S.coord.lon.toFixed(4)}`;
+  document.querySelectorAll(".seg").forEach(g=>g.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===String(S[g.dataset.key])))))}
+let pend=null;const schedule=()=>{cancelAnimationFrame(pend);pend=requestAnimationFrame(fullUpdate)};
+NUMS.forEach(k=>$(k).addEventListener("input",e=>{const v=parseFloat(e.target.value);if(!isNaN(v)){S[k]=v;S.manual=false;schedule()}}));
+["ess","hours"].forEach(k=>$(k).addEventListener("input",e=>{S[k]=parseFloat(e.target.value);selectionUpdate(false)}));
+$("pool").addEventListener("change",e=>{S.pool=e.target.checked;S.manual=false;schedule()});
+["laundry","gridCharge"].forEach(k=>$(k).addEventListener("change",e=>{S[k]=e.target.checked;schedule()}));
+$("liftType").addEventListener("input",e=>{S.liftType=e.target.value;schedule()});
+[["touOff","off"],["touNorm","norm"],["touPeak","peak"]].forEach(([id,k])=>$(id).addEventListener("input",e=>{const v=parseFloat(e.target.value);if(isNaN(v)||v<0)return;
+  S.tou={...(S.tou||{}),[k]:v};if(S.priceMode!=="tou"&&!(S.priceMode==="auto"&&M&&M.TOU))S.priceMode="tou";schedule()}));
+$("resetTou").addEventListener("click",()=>{S.tou=null;schedule()});
+$("hotelEx").addEventListener("click",()=>{const ft=m=>m/0.0929;Object.assign(S,{bldg:"hotel",stories:6,roof:"flat",aspect:1.8,halls:25,lifts:1,liftType:"std",hOcc:65,laundry:true,roofUse:60,
+  water:"elec",system:"mini",setpoint:77,insul:S.cityLabel.includes("Vietnam")?"poor":S.insul,loadMode:"est",apps:null,priceMode:"auto",tiers:null,tou:null,pick:"best",
+  rooms:[{type:"lobby",name:"Lobby & reception",area:ft(30),facade:"front",n:1},{type:"restaurant",name:"Breakfast room",area:ft(30),facade:"back",n:1},
+    {type:"guest",name:"Guest rooms, street side",area:ft(22),facade:"front",n:10},{type:"guest",name:"Guest rooms, back",area:ft(22),facade:"back",n:10}]});syncInputs();schedule()});
+["billKwh","exportCap"].forEach(k=>$(k).addEventListener("input",e=>{S[k]=e.target.value;S.manual=false;schedule()}));
+Object.keys(MIN).forEach(k=>$(k).addEventListener("input",e=>{const v=e.target.value;S[k]=v===""?"":CX.fx>1?String(+v/(MIN[k][0]*CX.fx)):v;S.manual=false;schedule()}));
+document.querySelectorAll(".seg").forEach(g=>g.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const k=g.dataset.key;S[k]=b.dataset.v;if(k!=="units"&&k!=="money")S.manual=false;
+  if(k==="loadMode"&&S.loadMode==="real"&&!S.apps&&M)S.apps=seedApps();syncInputs();schedule()}));
+$("appType").innerHTML=Object.entries(APPS).map(([k,a])=>`<option value="${k}">${a.n}</option>`).join("");
+$("addApp").addEventListener("click",()=>{const k=$("appType").value,A=APPS[k];(S.apps=S.apps||[]).push({k,n:A.n,q:1,w:A.w,h:A.h,s:A.s});S.manual=false;schedule()});
+$("seedApps").addEventListener("click",()=>{S.apps=seedApps();S.manual=false;schedule()});
+$("appTbl").addEventListener("input",e=>{const id=e.target.id,m=/^a([nqwhs])(\d+)$/.exec(id);if(!m||!S.apps)return;const a=S.apps[+m[2]];if(!a)return;
+  if(m[1]==="n")a.n=e.target.value.slice(0,50)||"Appliance";else{const v=parseFloat(e.target.value);if(isNaN(v)||v<0)return;a[{q:"q",w:"w",h:"h",s:"s"}[m[1]]]=m[1]==="h"?Math.min(24,v):v}
+  S.manual=false;schedule()});
+$("appTbl").addEventListener("click",e=>{const b=e.target.closest(".x");if(!b||!S.apps)return;S.apps.splice(+b.dataset.i,1);S.manual=false;schedule()});
+$("city").addEventListener("change",e=>{const q=e.target.value.trim().toLowerCase(),nm=q.split(",")[0].trim();
+  if(!nm){e.target.value=S.cityLabel;return}
+  const c=CITIES.find(c=>c.label.toLowerCase()===q)||CITIES.find(c=>c.name.toLowerCase()===nm)||CITIES.find(c=>c.name.toLowerCase().startsWith(nm));
+  if(c){S.cityLabel=c.label;S.coord=null;$("coords").value="";S.manual=false;schedule()}
+  else{const typed=e.target.value;e.target.value=S.cityLabel;const cn=$("climateNote");cn.classList.add("err");cn.textContent=`"${typed}" isn't in the list yet. Pick the nearest city, or enter coordinates.`}});
+$("city").addEventListener("focus",e=>e.target.select());
+$("city").addEventListener("input",e=>{const q=e.target.value.trim().toLowerCase(),c=CITIES.find(c=>c.label.toLowerCase()===q);if(c&&c.label!==S.cityLabel){S.cityLabel=c.label;S.coord=null;$("coords").value="";schedule()}});
+$("coords").addEventListener("input",()=>{const c=parseCoords($("coords").value);if(c)$("useCoords").click()});
+$("useCoords").addEventListener("click",()=>{const c=parseCoords($("coords").value),cn=$("climateNote");
+  if(!c){cn.classList.add("err");cn.textContent=`Couldn't read those coordinates. Try 20°50'59.99"N 106°40'59.99"E or 20.85, 106.68.`;return}
+  let best=null,bd=1e9;CITIES.forEach(x=>{const d=haversine(c.lat,c.lon,x.lat,x.lon);if(d<bd){bd=d;best=x}});
+  S.coord=c;S.cityLabel=best.label;S.manual=false;schedule()});
+$("coords").addEventListener("keydown",e=>{if(e.key==="Enter")$("useCoords").click()});
+$("rooms").addEventListener("input",e=>{const id=e.target.id,i=+id.slice(2);if(!S.rooms[i])return;
+  if(id.startsWith("rn"))S.rooms[i].name=e.target.value.slice(0,40)||"Room";
+  else if(id.startsWith("rc")){const v=parseInt(e.target.value);if(!isNaN(v)&&v>=1)S.rooms[i].n=Math.min(200,v);else return}
+  else if(id.startsWith("ra")){const v=parseFloat(e.target.value);if(!isNaN(v)&&v>=0)S.rooms[i].area=S.unit==="m"?v/0.0929:v;else return}
+  else if(id.startsWith("rf"))S.rooms[i].facade=e.target.value;
+  S.manual=false;schedule()});
+$("rooms").addEventListener("click",e=>{const b=e.target.closest(".x");if(!b||S.rooms.length<=1)return;S.rooms.splice(+b.dataset.i,1);S.manual=false;schedule()});
+$("addRoom").addEventListener("click",()=>{const t=$("addType").value,n=S.rooms.filter(r=>r.type===t).length;
+  S.rooms.push({type:t,name:TYPES[t].n+(n?" "+(n+1):""),area:{living:300,kitchen:160,dining:140,bedroom:130,office:110,bath:60,other:120,guest:237,lobby:320,restaurant:320}[t],facade:"back",n:t==="guest"?8:1});S.manual=false;schedule()});
+$("panels").addEventListener("input",e=>{S.panels=+e.target.value;S.manual=true;S.pick="custom";selectionUpdate(true)});
+$("batt").addEventListener("input",e=>{S.batt=+e.target.value;S.manual=true;S.pick="custom";selectionUpdate(true)});
+$("snapOpt").addEventListener("click",()=>{S.manual=false;S.pick="best";S.panels=OPT.best.panels;S.batt=OPT.best.batt;selectionUpdate(true)});
+$("snap100").addEventListener("click",()=>{const n=clamp(S._full||0,0,M.maxP);S.panels=n;S.batt=nightBatt(M,pvHourly(M,n),S.reserve).size;S.manual=true;S.pick="full";selectionUpdate(true)});
+function editTiers(){if(!S.tiers)S.tiers=JSON.parse(JSON.stringify(M.TF||{cur:"$",fx:1,vat:0,tiers:[[null,M.flat]]}));S.priceMode="tiers";S.manual=false}
+$("tiers").addEventListener("input",e=>{const id=e.target.id,i=+id.slice(2),v=parseFloat(e.target.value);if(isNaN(v)||v<0)return;editTiers();const t=S.tiers.tiers[i];if(!t)return;
+  if(id.startsWith("tu"))t[0]=v;else t[1]=v;schedule()});
+$("tiers").addEventListener("change",()=>{if(!S.tiers)return;S.tiers.tiers.sort((a,b)=>(a[0]==null?1e12:a[0])-(b[0]==null?1e12:b[0]));schedule()});
+$("tiers").addEventListener("click",e=>{const b=e.target.closest(".x");if(!b)return;editTiers();if(S.tiers.tiers.length<=1)return;S.tiers.tiers.splice(+b.dataset.i,1);S.tiers.tiers[S.tiers.tiers.length-1][0]=null;syncInputs();schedule()});
+$("addTier").addEventListener("click",()=>{editTiers();const T=S.tiers.tiers,n=T.length,prevUp=n>1?T[n-2][0]:0,last=T[n-1];T.splice(n-1,0,[prevUp+100,last[1]]);last[1]=+(last[1]*1.15).toFixed(S.tiers.fx>100?0:3);syncInputs();schedule()});
+$("resetTier").addEventListener("click",()=>{S.tiers=null;S.priceMode="auto";S.manual=false;syncInputs();schedule()});
+[["tvat","vat"],["tfx","fx"]].forEach(([id,k])=>$(id).addEventListener("input",e=>{const v=parseFloat(e.target.value);if(isNaN(v)||v<0||(k==="fx"&&v===0))return;editTiers();S.tiers[k]=v;syncInputs();schedule()}));
+$("months").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;S.month=+b.dataset.m;
+  document.querySelectorAll("#months button").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));updateDayTag();dayCharts();timeUpdate(false);persist()});
+$("hour").addEventListener("input",e=>{S.hour=+e.target.value;timeUpdate(true)});
+$("play").addEventListener("click",()=>{playing=!playing;$("play").textContent=playing?"❚❚ Pause":"▶ Play day";
+  if(playing&&!V3.renderer){const step=()=>{if(!playing)return;S.hour=(S.hour+0.25)%24;$("hour").value=S.hour;timeUpdate(true);setTimeout(step,120)};step()}});
+syncInputs();init3D();fullUpdate();
+</script>
