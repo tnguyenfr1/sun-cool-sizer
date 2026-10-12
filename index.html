@@ -158,6 +158,13 @@ table.apps .x{border:0;background:transparent;color:var(--muted);cursor:pointer;
 .wf .b{height:14px;background:var(--sunk);border-radius:4px;position:relative;overflow:hidden}
 .wf .b i{position:absolute;top:0;bottom:0;border-radius:4px}
 .wf .v{text-align:right;font-family:var(--f-mono);font-size:12.5px}
+.qr-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 14px}
+@media (max-width:760px){.qr-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+#sec-rules table.data th,#sec-rules table.data td{white-space:normal}#sec-rules table.data td.n{white-space:nowrap}
+.qr-out{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:16px}
+.qr-out>div{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--card)}
+.qr-out .k{font-size:12px;color:var(--muted)}.qr-out .v{font-family:var(--f-mono);font-size:20px;font-weight:700;margin-top:4px}.qr-out .s{font-size:12.5px;margin-top:4px}
+.qr-out>div.qpick{border-color:var(--ink);border-width:2px}
 .acopt{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:18px}
 @media (max-width:760px){.acopt{grid-template-columns:1fr}}
 .acopt .vcard ul{margin:6px 0 0;padding-left:18px;font-size:13px;line-height:1.6}
@@ -574,6 +581,26 @@ footer{margin-top:28px;color:var(--muted);font-size:12.5px;max-width:90ch}
         <h3 style="margin-top:22px">Room by room</h3>
         <div class="tbl-wrap"><table class="data" id="roomTbl"></table></div>
         <p class="note" id="roomNote"></p>
+      </section>
+
+      <section class="card" id="sec-rules">
+        <div class="sechead"><h2>Quick AC rules per m²</h2><span class="tag cool">For a site visit</span></div>
+        <p class="note" style="margin-top:0">Fast checks to do in front of the customer. Type in one room and the size updates as you type. These rules look only at size and a few adjustments, so use the room-by-room calculation for top floors, big glass and hotels.</p>
+        <div class="qr-grid">
+          <div class="field"><label for="qrA">Floor area <span id="qrAu">m²</span></label><input id="qrA" type="number" min="1" step="0.5" value="20" inputmode="decimal"></div>
+          <div class="field"><label for="qrH">Ceiling height <span id="qrHu">m</span></label><input id="qrH" type="number" min="2" step="0.1" value="3" inputmode="decimal"></div>
+          <div class="field"><label for="qrSun">Sun on the room</label><select id="qrSun"><option value="shade">Heavily shaded (−10%)</option><option value="normal" selected>Normal</option><option value="sun">Very sunny (+10%)</option></select></div>
+          <div class="field"><label for="qrPpl">People usually in it</label><input id="qrPpl" type="number" min="0" step="1" value="2" inputmode="numeric"></div>
+          <div class="field"><label for="qrIns">Insulation (for heating)</label><select id="qrIns"><option value="passive">Passive house</option><option value="good">Well insulated (recent)</option><option value="avg" selected>Average</option><option value="poor">Poorly insulated</option><option value="none">No insulation (old)</option></select></div>
+          <div class="field" style="justify-content:flex-end"><label style="justify-content:flex-start;gap:8px;font-weight:600"><input id="qrKit" type="checkbox"> It's a kitchen (+4,000 BTU)</label></div>
+        </div>
+        <div class="qr-out" id="qrOut"></div>
+        <h3 style="margin-top:18px">Cooling: rules of thumb</h3><div class="tbl-wrap"><table class="data" id="qrCool"></table></div>
+        <div class="grid2" style="margin-top:18px">
+          <div><h3>Heating: rules of thumb</h3><div class="tbl-wrap"><table class="data" id="qrHeat"></table></div></div>
+          <div><h3>Units</h3><div class="tbl-wrap"><table class="data" id="qrConv"></table></div></div>
+        </div>
+        <p class="note" id="qrNote"></p>
       </section>
 
       <section class="card" id="sec-use">
@@ -1567,6 +1594,46 @@ function battWhy(p,best){
 function ruleOfThumb(st){
   if(st.region==="Vietnam")return {perFt2:600*0.0929,txt:"what Vietnamese shops use: about 600 BTU per m² (9,000 BTU up to 15 m², 12,000 up to 20 m², 18,000 up to 30 m²)"};
   return {perFt2:25,txt:"the common shop chart (ENERGY STAR room-AC guide): about 20–25 BTU per ft² (215–270 BTU per m²)"}}
+
+// Quick rules: per-m² checks for a site visit. Independent of the model; reads only the city (shop rule, winter temperature).
+const QR_HEAT={passive:[10,10,"Passivhaus label: peak heating ≤ 10 W/m²"],good:[60,75,"well insulated (RT 2012 / RE 2020 era)"],avg:[75,100,"average insulation"],poor:[100,120,"poorly insulated"],none:[150,150,"no insulation, typical before 1975"]};
+function quickRules(){
+  if(!M)return;
+  const met=MET(),vn=M.st.region==="Vietnam",RT=ruleOfThumb(M.st),perM2=RT.perFt2/0.0929;
+  $("qrAu").textContent=met?"m²":"ft²";$("qrHu").textContent=met?"m":"ft";
+  const aIn=parseFloat($("qrA").value),hIn=parseFloat($("qrH").value);
+  const A=aIn>0?(met?aIn:aIn*0.0929):0,H=hIn>0?(met?hIn:hIn*0.3048):3;
+  const ppl=Math.max(0,parseInt($("qrPpl").value)||0),sun=$("qrSun").value,kit=$("qrKit").checked;
+  const adj=x=>x*(sun==="shade"?0.9:sun==="sun"?1.1:1)+Math.max(0,ppl-2)*600+(kit?4000:0);
+  const byA=adj(A*perM2),byV=adj(A*H*200),need=vn?Math.max(byA,byV):byA;
+  const head=HEADS.find(x=>x>=need*0.95),units=head?null:Math.ceil(need/24000);
+  const sizeTxt=head?`${fmt(head)} BTU`:`${units} × 24,000 BTU`,sizeSub=head?`${HP[head]} HP · ${fmt(head/3412,1)} kW`:`room too big for one wall unit`;
+  const winC=(M.cl.Twin-32)/1.8,hot=winC>12,hr=QR_HEAT[$("qrIns").value],hW=(hr[0]+hr[1])/2*A*H/2.5;
+  const box=(k,v,s,pick)=>`<div${pick?' class="qpick"':""}><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  $("qrOut").innerHTML=!A?`<div><div class="k">Type the floor area to get a size</div></div>`:
+    box(`By floor area (${fmt(vn?600:RT.perFt2/0.0929*1,0)} BTU/m²${vn?"":` · ${fmt(RT.perFt2)} BTU/ft²`})`,`${fmt(byA)} BTU/h`,`${fmt(byA/3412,1)} kW · ${fmt(byA/3.412/A)} W/m² after adjustments`)+
+    (vn?box(`By volume (200 BTU/m³ × ${fmt(A*H,0)} m³)`,`${fmt(byV)} BTU/h`,H>3.05?"higher than by area: tall ceiling":H<2.95?"lower than by area: low ceiling":"same as by area at a 3 m ceiling"):"")+
+    box("Split unit to buy",sizeTxt,sizeSub+` · next size up from ${fmt(need)} BTU/h`,1)+
+    box(`Heating, ${hr[2]}`,hot?"not needed":`${fmt(hW/1000,1)} kW`,hot?`coldest design night here is about ${fmt(winC)}°C`:`${fmt((hr[0]+hr[1])/2)} W/m² at 2.5 m ceiling, 19 °C inside · ${fmt(hW*3.412)} BTU/h`);
+  const w=b=>fmt(b/3.412),fa=b=>fmt(b*0.0929);
+  $("qrCool").innerHTML=`<thead><tr><th>Rule</th><th class="n">BTU/h per m²</th><th class="n">W per m²</th><th>Source</th></tr></thead><tbody>`+
+    [["Vietnam shop rule, by floor area",fmt(600),w(600),"Vietnamese retailers' guides"],
+     ["Vietnam shop rule, by volume: 200 BTU/h per m³","600 at 3 m","176 at 3 m","Vietnamese retailers' guides"],
+     ["US chart, insulated houses: 20–25 BTU/h per ft²","215–270","63–79","ENERGY STAR room AC guide"],
+     ["Heavily shaded room","−10%","","ENERGY STAR"],
+     ["Very sunny room","+10%","","ENERGY STAR"],
+     ["Each regular occupant beyond 2","+600 BTU/h","+176 W","ENERGY STAR"],
+     ["Kitchen","+4,000 BTU/h","+1.2 kW","ENERGY STAR"],
+     ["Top floor under the roof, west-facing glass, lobby, restaurant","use the room calc","","area rules undercount sun and crowds"]]
+    .map(r=>`<tr><td>${r[0]}</td><td class="n">${r[1]}</td><td class="n">${r[2]}</td><td class="hint">${r[3]}</td></tr>`).join("")+"</tbody>";
+  $("qrHeat").innerHTML=`<thead><tr><th>Building</th><th class="n">W per m²</th><th class="n">BTU/h per m²</th></tr></thead><tbody>`+
+    [["Passive house (label limit)",[10,10]],["Well insulated (RT 2012 / RE 2020)",[60,75]],["Average insulation",[75,100]],["Poorly insulated",[100,120]],["No insulation, before 1975",[150,150]]]
+    .map(r=>`<tr><td>${r[0]}</td><td class="n">${r[1][0]===r[1][1]?r[1][0]:r[1].join("–")}</td><td class="n">${r[1].map(x=>fmt(x*3.412)).filter((x,i,a)=>a.indexOf(x)===i).join("–")}</td></tr>`).join("")+
+    `<tr><td colspan="3" class="hint">For a 2.5 m ceiling and 19 °C inside; scale up for taller rooms and colder towns. French installer practice; the 10 W/m² is the Passivhaus criterion.</td></tr></tbody>`;
+  $("qrConv").innerHTML=`<tbody>`+[["1 kW of cooling","3,412 BTU/h"],["1 ton (US)","12,000 BTU/h = 3.5 kW"],["\"1 HP\" (1 ngựa) on a Vietnamese label","≈ 9,000 BTU/h = 2.6 kW of cooling (a market label, not 746 W)"],["Standard split sizes","9,000 · 12,000 · 18,000 · 24,000 BTU/h"],["1 m²","10.76 ft²"]]
+    .map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")+"</tbody>";
+  $("qrNote").innerHTML=`Adjustments stack: area × rule, then ±10% for sun, then add people and kitchen.${vn?" In Vietnam the larger of the area and volume results is used, so tall rooms get a bigger unit.":""} A unit within 5% under the need is accepted, as shops do. An oversized unit cycles on and off, dries the air poorly and costs more, so don't round up twice.`}
+["qrA","qrH","qrSun","qrPpl","qrIns","qrKit"].forEach(id=>$(id).addEventListener("input",quickRules));
 function acOptions(p,g,cl){
   const st=M.st,heads=M.rooms.filter(r=>r.type!=="bath"),tot=sum(heads.map(r=>r.head*r.n)),tons=M.unit*M.systems,us=US_STATES.has(st.region)&&!M.hotel;
   const runS=sum(M.L.cool.map((d,m)=>sum(d)*DAYS[m]))*(p.system==="central"?1/1.1:1),runC=runS*1.1;
@@ -1733,6 +1800,7 @@ function renderStatic(){
   $("acTons").innerHTML=MET()?`${fmt(M.btu/3412,1)}<small>kW of cooling</small>`:`${fmt(M.need,1)}<small>tons</small>`;
   $("acUnit").innerHTML=`${capBoth(M.btu)}${MET()?` · ${fmt(M.need,1)} tons`:""} at the hottest hour (${fmtHour(M.peakHour)}) of a ${tF(cl.Tdes)} design day. See "Which system to buy" below.`;
   acOptions(p,g,cl);
+  quickRules();
   const cool=sum(M.L.cool.map((d,m)=>sum(d)*DAYS[m]));
   const M2=model({...S,setpoint:S.setpoint+1}),c2=sum(M2.L.cool.map((d,m)=>sum(d)*DAYS[m]));
   $("acKv").innerHTML=[["Cooling per year",fmt(cool)+" kWh"],["Cooling cost",usd(cool*M.price)+"/yr"],["Power draw running",fmt(M.unit*M.systems*12000/(p.seer*0.78*1000),1)+" kW"],[MET()?"Each 1°C warmer saves":"Each 1°F warmer saves",cool>0?fmt((1-c2/cool)*100*(MET()?1.8:1))+"%":"—"]]
@@ -1746,9 +1814,9 @@ function renderStatic(){
     $("heatCheck").innerHTML=`Heating check: on a ${tF(cl.Twin)} winter design night the house needs ${cap(M.heatDesign)}. This heat pump gives about ${cap(capH)} at that temperature. <span class="pill ${ok?"good":"warn"}">${ok?"covers it":"needs backup heat or a cold-climate model"}</span>`}
   else $("heatCheck").textContent=`Heating need on a ${tF(cl.Twin)} design night: ${capBoth(M.heatDesign)}.`;
   const RT=ruleOfThumb(st),ruleHead=a=>{const b=RT.perFt2*a;return HEADS.find(x=>x>=b*0.95)||36000};
-  let tot=0,totR=0;$("roomTbl").innerHTML=`<thead><tr><th>Room</th><th class="n">Area</th><th>Wall faces</th><th class="n">Peak load</th><th class="n">Peak time</th><th class="n">Split unit (our calc)</th><th class="n">Shop rule of thumb</th></tr></thead><tbody>`+
-    M.rooms.map(r=>{tot+=r.head*r.n;const rh=ruleHead(r.area);totR+=rh*r.n;return `<tr><td>${esc(r.name)}${r.n>1?` <span class="hint">× ${r.n}</span>`:""}</td><td class="n">${area(r.area)}</td><td>${facLabel(r.facade,g)}</td><td class="n">${cap(r.load)}</td><td class="n">${fmtHour(r.hour)}</td><td class="n"><b>${fmt(r.head)} BTU</b> · ${HP[r.head]} HP</td><td class="n">${fmt(rh)} BTU${rh>r.head?' <span class="pill warn">bigger</span>':rh<r.head?' <span class="pill warn">smaller</span>':""}</td></tr>`}).join("")+
-    `</tbody><tfoot><tr><td colspan="5"><b>${sum(M.rooms.map(r=>r.n))} rooms</b> · halls and baths share air with the rooms around them</td><td class="n"><b>${fmt(tot)} BTU</b></td><td class="n">${fmt(totR)} BTU</td></tr></tfoot>`;
+  let tot=0,totR=0;$("roomTbl").innerHTML=`<thead><tr><th>Room</th><th class="n">Area</th><th>Wall faces</th><th class="n">Peak load</th><th class="n">Peak time</th><th class="n">Our calc per ${MET()?"m²":"ft²"}</th><th class="n">Split unit (our calc)</th><th class="n">Shop rule of thumb</th></tr></thead><tbody>`+
+    M.rooms.map(r=>{tot+=r.head*r.n;const rh=ruleHead(r.area);totR+=rh*r.n;return `<tr><td>${esc(r.name)}${r.n>1?` <span class="hint">× ${r.n}</span>`:""}</td><td class="n">${area(r.area)}</td><td>${facLabel(r.facade,g)}</td><td class="n">${cap(r.load)}</td><td class="n">${fmtHour(r.hour)}</td><td class="n">${r.area>0?fmt(r.load/(MET()?r.area*0.0929:r.area))+" BTU":"–"}</td><td class="n"><b>${fmt(r.head)} BTU</b> · ${HP[r.head]} HP</td><td class="n">${fmt(rh)} BTU${rh>r.head?' <span class="pill warn">bigger</span>':rh<r.head?' <span class="pill warn">smaller</span>':""}</td></tr>`}).join("")+
+    `</tbody><tfoot><tr><td colspan="6"><b>${sum(M.rooms.map(r=>r.n))} rooms</b> · halls and baths share air with the rooms around them</td><td class="n"><b>${fmt(tot)} BTU</b></td><td class="n">${fmt(totR)} BTU</td></tr></tfoot>`;
   $("roomNote").innerHTML=`Split units come in fixed sizes: 9,000 BTU (1 HP), 12,000 (1.5 HP), 18,000 (2 HP), 24,000 (2.5 HP). Our size comes from each room's walls, windows, the direction they face and the sun at each hour. The shop rule of thumb is ${RT.txt}. It only looks at floor area, so it can be too big for a shaded room and too small for a west-facing one with lots of glass.`;
   const yr=k=>sum(M.L[k].map((d,m)=>sum(d)*DAYS[m]));
   renderLoadExplain(p,g,st);
