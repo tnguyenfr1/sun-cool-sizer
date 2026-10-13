@@ -173,11 +173,14 @@ table.apps .x{border:0;background:transparent;color:var(--muted);cursor:pointer;
 .compass svg{flex:none;width:64px;height:64px}
 .compass .field{flex:1;margin:0}
 .rooms{display:flex;flex-direction:column;gap:6px}
-.room{display:grid;grid-template-columns:minmax(0,1.5fr) 50px minmax(0,.8fr) minmax(0,1.1fr) 22px;gap:5px;align-items:center}
+.room{display:grid;grid-template-columns:46px 62px minmax(0,.9fr) minmax(0,1.2fr) 22px;grid-template-areas:"nm nm nm nm x" "c a l f .";gap:5px;align-items:center;padding-bottom:9px;margin-bottom:9px;border-bottom:1px solid var(--line)}
+.room>[id^=rn]{grid-area:nm}.room>[id^=rc]{grid-area:c}.room>[id^=ra]{grid-area:a}.room>[id^=rl]{grid-area:l}.room>[id^=rf]{grid-area:f}.room>.x{grid-area:x}
+.room input[type=number]{-moz-appearance:textfield}.room input::-webkit-inner-spin-button,.room input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .room input,.room select{padding:6px 7px;font-size:13px}
+.use-grid{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:5px 8px;align-items:center;font-size:13px}.use-grid input{padding:6px 7px;font-size:13px}
 .room .x{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;padding:2px 4px}
 .room .x:hover{color:var(--bad)}
-.rooms-head{display:grid;grid-template-columns:minmax(0,1.5fr) 50px minmax(0,.8fr) minmax(0,1.1fr) 22px;gap:5px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.rooms-head{display:grid;grid-template-columns:46px 62px minmax(0,.9fr) minmax(0,1.2fr) 22px;gap:5px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
 .addrow{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
 .addrow select{flex:1 1 120px;width:auto}
 .area-total{font-size:12.5px;margin-top:8px;font-family:var(--f-mono);color:var(--muted)}
@@ -400,13 +403,15 @@ footer{margin-top:28px;color:var(--muted);font-size:12.5px;max-width:90ch}
       <div class="panel" id="panelRooms">
         <h3 style="display:flex;justify-content:space-between;align-items:center;gap:8px">Rooms
           <span class="hint" id="areaUnit" style="text-transform:none;letter-spacing:0"></span></h3>
-        <div class="rooms-head"><span>Room</span><span>How many</span><span>Area each</span><span>Wall faces</span><span></span></div>
+        <div class="rooms-head"><span>How many</span><span>Area each</span><span>Floor</span><span>Wall faces</span><span></span></div>
         <div class="rooms" id="rooms"></div>
         <div class="addrow">
           <select id="addType" aria-label="Room type"></select>
           <button class="btn small" id="addRoom" type="button">Add room</button>
         </div>
         <div class="field"><label for="halls">Halls, baths, stairs, closets <output id="hallsOut"></output></label><input type="range" id="halls" min="5" max="35"></div>
+        <div class="field"><label for="totalArea">Total floor area, all floors <span class="hint" id="totalAreaUnit"></span></label><input type="number" id="totalArea" min="0" step="1" placeholder="Leave empty: rooms + halls">
+          <span class="hint">From the plans or the land-use certificate. It sets walls, roof and lighting; the rooms above still size each AC unit.</span></div>
         <div class="area-total" id="areaTotal"></div>
       </div>
 
@@ -418,6 +423,15 @@ footer{margin-top:28px;color:var(--muted);font-size:12.5px;max-width:90ch}
             <span class="hint" id="hotelHint"></span></div>
           <label class="check"><input type="checkbox" id="laundry"> Sheets and towels washed on site</label>
         </div>
+        <div class="field" id="useField"><span class="lbl">Everyday use, kWh a year <span class="hint">empty = our estimate</span></span>
+          <div class="use-grid">
+            <label for="use_light">Lighting</label><input type="number" id="use_light" min="0" step="10" inputmode="numeric">
+            <label for="use_cook">Cooking</label><input type="number" id="use_cook" min="0" step="10" inputmode="numeric">
+            <label for="use_fridge">Fridge & freezer</label><input type="number" id="use_fridge" min="0" step="10" inputmode="numeric">
+            <label for="use_wash">Laundry & dishes</label><input type="number" id="use_wash" min="0" step="10" inputmode="numeric">
+            <label for="use_elec">TV, computers, Wi-Fi</label><input type="number" id="use_elec" min="0" step="10" inputmode="numeric">
+            <label for="use_misc">Fans, iron, small items, standby</label><input type="number" id="use_misc" min="0" step="10" inputmode="numeric">
+          </div><span class="hint" id="useHint"></span></div>
         <div class="field"><label for="setpoint">Summer thermostat <output id="setpointOut"></output></label><input type="range" id="setpoint" min="68" max="82"></div>
         <div class="field"><span class="lbl">Cooling system</span>
           <div class="seg" data-key="system"><button data-v="central">Central, ducted</button><button data-v="mini">Mini-splits</button></div></div>
@@ -822,6 +836,10 @@ function norm(a){const s=a.reduce((x,y)=>x+y,0);return a.map(v=>v/s)}
 const W_GUEST=norm([.5,.4,.3,.3,.3,.5,1.1,1.3,1,.6,.4,.4,.4,.4,.4,.5,.7,1,1.4,1.6,1.6,1.5,1.2,.8]);
 const W_LAUNDRY=norm([0,0,0,0,0,0,0,0,.6,1,1,1,1,1,1,.8,.4,0,0,0,0,0,0,0]);
 const W_LIFT=norm([.1,.05,.05,.05,.05,.2,.6,1,1,.8,.7,.8,1,.8,.7,.7,.8,1,1.1,1,.9,.7,.4,.2]);
+const W_LIGHT=norm([.3,.2,.1,.1,.1,.3,.8,.7,.3,.2,.2,.2,.2,.2,.2,.3,.5,1,1.6,1.8,1.7,1.4,1,.6]);
+const W_COOK=norm([0,0,0,0,0,.2,.8,.6,.2,.1,.4,1.2,.9,.2,.1,.1,.3,1.2,1.8,1.2,.4,.2,.1,0]);
+const W_FRIDGE=norm([.9,.9,.9,.9,.9,.9,.95,1,1,1,1.05,1.1,1.1,1.15,1.15,1.1,1.05,1.05,1.05,1,1,.95,.9,.9]);
+const W_ELEC=norm([.3,.25,.2,.2,.2,.25,.5,.6,.5,.5,.5,.6,.7,.6,.6,.7,.9,1.2,1.6,1.9,1.9,1.6,1.1,.6]);
 const W_BASE=norm([.6,.5,.5,.5,.5,.6,.8,1,1,.9,.85,.85,.85,.85,.9,1,1.15,1.35,1.5,1.55,1.45,1.25,1,.8]);
 const W_WATER=norm([.2,.1,.1,.1,.2,.6,1.6,1.8,1.4,1,.7,.6,.5,.5,.5,.6,.8,1.1,1.5,1.6,1.4,1,.6,.3]);
 const W_EVN=norm([1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1]);
@@ -847,12 +865,12 @@ const HP={6000:"0.75",9000:"1",12000:"1.5",18000:"2",24000:"2.5",30000:"3",36000
 const APPS={ac9:{n:"Air conditioner 9,000 BTU (1 HP)",w:650,h:8,s:21,kind:"cool",btu:9000},ac12:{n:"Air conditioner 12,000 BTU (1.5 HP)",w:950,h:8,s:21,kind:"cool",btu:12000},
   ac18:{n:"Air conditioner 18,000 BTU (2 HP)",w:1450,h:6,s:17,kind:"cool",btu:18000},ac24:{n:"Air conditioner 24,000 BTU (2.5 HP)",w:1950,h:6,s:17,kind:"cool",btu:24000},
   central:{n:"Central AC (qty = tons)",w:1050,h:8,s:12,kind:"cool",btu:12000},fan:{n:"Fan",w:50,h:8,s:21,kind:"cool"},
-  fridge:{n:"Refrigerator (average draw)",w:60,h:24,s:0},freezer:{n:"Freezer (average draw)",w:40,h:24,s:0},wash:{n:"Washing machine",w:500,h:1,s:9},
-  dryer:{n:"Clothes dryer",w:2500,h:1,s:10},dish:{n:"Dishwasher",w:1200,h:1,s:20},tv:{n:"TV",w:100,h:5,s:18},lights:{n:"Lights (LED, whole house)",w:150,h:6,s:17},
-  wh:{n:"Electric water heater",w:2500,h:1,s:18,kind:"water"},rice:{n:"Rice cooker",w:700,h:1,s:17},cook:{n:"Induction / electric hob",w:1800,h:1,s:17.5},
-  oven:{n:"Oven",w:2000,h:0.5,s:18},micro:{n:"Microwave",w:1000,h:0.25,s:12},kettle:{n:"Electric kettle",w:1800,h:0.25,s:6},pc:{n:"Computer / laptop",w:100,h:8,s:9},
-  router:{n:"Wi-Fi, chargers, standby",w:30,h:24,s:0},pump:{n:"Water pump",w:750,h:1,s:6},
-  lift:{n:"Elevator (average incl. standby)",w:220,h:24,s:0,kind:"lift"},minibar:{n:"Minibar fridge (average draw)",w:30,h:24,s:0},
+  fridge:{n:"Refrigerator (average draw)",w:60,h:24,s:0,kind:"fridge"},freezer:{n:"Freezer (average draw)",w:40,h:24,s:0,kind:"fridge"},wash:{n:"Washing machine",w:500,h:1,s:9,kind:"wash"},
+  dryer:{n:"Clothes dryer",w:2500,h:1,s:10,kind:"wash"},dish:{n:"Dishwasher",w:1200,h:1,s:20,kind:"wash"},tv:{n:"TV",w:100,h:5,s:18,kind:"elec"},lights:{n:"Lights (LED, whole house)",w:150,h:6,s:17,kind:"light"},
+  wh:{n:"Electric water heater",w:2500,h:1,s:18,kind:"water"},rice:{n:"Rice cooker",w:700,h:1,s:17,kind:"cook"},cook:{n:"Induction / electric hob",w:1800,h:1,s:17.5,kind:"cook"},
+  oven:{n:"Oven",w:2000,h:0.5,s:18,kind:"cook"},micro:{n:"Microwave",w:1000,h:0.25,s:12,kind:"cook"},kettle:{n:"Electric kettle",w:1800,h:0.25,s:6,kind:"cook"},pc:{n:"Computer / laptop",w:100,h:8,s:9,kind:"elec"},
+  router:{n:"Wi-Fi, chargers, standby",w:30,h:24,s:0,kind:"elec"},pump:{n:"Water pump",w:750,h:1,s:6},
+  lift:{n:"Elevator (average incl. standby)",w:220,h:24,s:0,kind:"lift"},minibar:{n:"Minibar fridge (average draw)",w:30,h:24,s:0,kind:"fridge"},
   washc:{n:"Commercial washer / dryer",w:3000,h:3,s:9,kind:"laundry"},corr:{n:"Corridor & stair lights",w:200,h:24,s:0},iron:{n:"Iron",w:1200,h:0.5,s:7},
   heater:{n:"Electric heater",w:1500,h:4,s:18,kind:"heat"},ev:{n:"Electric car charger",w:7000,h:2,s:22,kind:"ev"},pool:{n:"Pool pump",w:1100,h:6,s:10,kind:"pool"},other:{n:"Other",w:100,h:1,s:12}};
 // share of each hour an appliance runs, for a run of d hours starting at hour s
@@ -907,7 +925,7 @@ function geom(p){
   {const f=panelFmt(p);PANEL.w=f.w;PANEL.h=f.h}
   const roomsArea=sum(p.rooms.map(r=>(+r.area||0)*rn(r)));
   // existing building: the roof area the installer measured sets the footprint
-  const exRoof=p.mode==="existing"&&+p.roofArea>0,sqft=exRoof?+p.roofArea*p.stories:Math.max(300,roomsArea/(1-p.halls/100));
+  const exRoof=p.mode==="existing"&&+p.roofArea>0,sqft=exRoof?+p.roofArea*p.stories:+p.totalArea>0?+p.totalArea:Math.max(300,roomsArea/(1-p.halls/100));
   const fp=sqft/p.stories, D=Math.sqrt(fp/p.aspect), W=p.aspect*D, ceil=+p.ceil, Hw=p.stories*(ceil+1);
   const A=p.front, f={};
   const az={front:A,back:(A+180)%360,s1:(A+90)%360,s2:(A+270)%360}, len={front:W,back:W,s1:D,s2:D};
@@ -977,7 +995,12 @@ function model(p){
   const cfm=g.vol*ins.ach/60, UAinf=1.08*cfm, UAenv=UAwall+UAwin+UAceil, UAc=UAenv+UAinf;
   const UAh=UAenv+UAinf*1.3+2*(g.W+g.D)*ins.slab;
   const alphaR=ALPHA[p.roofColor], attic=p.roof==="flat"?1:0.55, shW=SHADE_WIN[p.shade], aW=0.6, ho=3;
-  const baseYr=2200+900*occ+0.6*g.sqft;
+  // everyday use, item by item (kWh a year). A number typed under "Everyday use" replaces the estimate.
+  const usH=US_STATES.has(st.region),aM=g.sqft*0.0929,ov=p.use||{},given=v=>v!==""&&v!=null&&!isNaN(+v)&&+v>=0;
+  const EST={light:aM*(usH?5.5:4.5),cook:usH?300+100*occ:150+150*occ,fridge:usH?700:400,wash:usH?150+250*occ:50+60*occ,elec:usH?400+400*occ:200+250*occ,misc:usH?800+200*occ:200+100*occ};
+  const EV={};Object.keys(EST).forEach(k=>EV[k]=given(ov[k])?+ov[k]:EST[k]);
+  const WD={light:W_LIGHT,cook:W_COOK,fridge:W_FRIDGE,wash:W_LAUNDRY,elec:W_ELEC,misc:W_BASE};
+  const baseYr=sum(Object.values(EV)),baseH=W_BASE.map((_,h)=>sum(Object.keys(EV).map(k=>EV[k]/365*WD[k][h])));
   function gains(m,kt){
     const I={};FAC.forEach(k=>I[k]=irr(latR,m,kt,90,g.f[k].az));
     const R=g.thermRoof.map(([t,a])=>irr(latR,m,kt,t,a));
@@ -986,7 +1009,7 @@ function model(p){
     for(let h=0;h<24;h++){let w=0,o=0;
       FAC.forEach(k=>{const ib=I[k][h]*0.317;w+=g.f[k].win*ins.shgc*shW*ib;o+=ins.wall*g.f[k].opq*aW*ib/ho});
       win.push(w);opq.push(o);roof.push(UAceil*attic*alphaR*roofI[h]*0.317/ho);
-      intl.push(230*occ*W_OCC[h]+baseYr/365*W_BASE[h]*3412*0.8)}
+      intl.push(230*occ*W_OCC[h]+baseH[h]*3412*0.8)}
     return {I,roofI,win,opq,roof,intl}}
   const lag=a=>a.map((v,h)=>0.5*v+0.3*a[(h+23)%24]+0.2*a[(h+22)%24]);
   // design cooling: 75°F inside, outdoor design day, clear sky
@@ -1007,16 +1030,17 @@ function model(p){
   if(!unit){systems=Math.ceil(need*0.95/5);unit=UNITS.find(u=>u>=need*0.95/systems)||5}
   const minHead=US_STATES.has(st.region)?6000:9000; // 6,000 BTU heads are rare outside the US
   const onFacade={};FAC.forEach(k=>onFacade[k]=sum(p.rooms.filter(r=>r.facade===k).map(r=>(+r.area||0)*rn(r)))||1);
-  const rooms=p.rooms.map(r=>{const a=+r.area||0,sh=a/g.sqft,T=TYPES[r.type];let best=0,bh=15;
-    for(let h=8;h<22;h++){const dt=Td[h]-75;let q=(UAceil*dt+rD[h])*sh+UAinf*dt*sh+T.gain+230*(T.pp!=null?T.pp:occ*T.ppl);
+  // the roof only heats rooms on the top floor; "all floors" (0) spreads a row of rooms evenly over the floors
+  const rooms=p.rooms.map(r=>{const a=+r.area||0,sh=a/g.sqft,T=TYPES[r.type],fl=Math.min(+r.fl||0,p.stories),rs=fl===0?a/g.fp/p.stories:fl===p.stories?a/g.fp:0;let best=0,bh=15;
+    for(let h=8;h<22;h++){const dt=Td[h]-75;let q=(UAceil*dt+rD[h])*rs+UAinf*dt*sh+T.gain+230*(T.pp!=null?T.pp:occ*T.ppl);
       if(r.facade!=="int"){const k=r.facade,fs=a/onFacade[k],wa=a*WFR[p.windows]*T.win*g.f[k].scale,ib=GD.I[k][h]*0.317;
         q+=ins.wall*g.f[k].opq*fs*(dt+aW*ib/ho)+wa*(ins.win*dt+ins.shgc*shW*ib)}
       if(q>best){best=q;bh=h}}
-    best+=latent*sh;return {...r,n:rn(r),load:best,hour:bh,head:HEADS.find(x=>x>=minHead&&x>=best*0.95)||36000}});
+    best+=latent*sh;return {...r,n:rn(r),fl,load:best,hour:bh,head:HEADS.find(x=>x>=minHead&&x>=best*0.95)||36000}});
   const heatDesign=UAh*(70-cl.Twin)*duct;
   const capAt=(T)=>T>=47?1:Math.max(0.35,1-(p.seer>=18?0.009:0.016)*(47-T));
   const cop=p.heat==="hp"?clamp(2.2+0.03*(cl.T[cl.cold]-20),1.8,3.4):1;
-  const L={cool:[],heat:[],home:[],water:[],laundry:[],lift:[],pump:[],ev:[],pool:[]};
+  const L={cool:[],heat:[],home:[],light:[],cook:[],fridge:[],elec:[],water:[],laundry:[],lift:[],pump:[],ev:[],pool:[]};
   // hotel: guest rooms are cooled only when occupied (mostly at night); corridors are not cooled
   const gArea=sum(p.rooms.filter(r=>TYPES[r.type].hotel).map(r=>(+r.area||0)*rn(r))),cArea=g.roomsArea-gArea,corr=g.sqft-g.roomsArea;
   const gs=gArea/g.sqft,cs=cArea/g.sqft,coolF=hotel?cs+gs*occR:1,gw=W_GUESTIN.map(v=>v/(sum(W_GUESTIN)/24));
@@ -1044,8 +1068,9 @@ function model(p){
     if(sh<=0){const mx=Math.max(...Th);qh=Th.map(t=>Math.max(0.01,mx-t));sh=sum(qh)}
     if(hotel){const wq=qc.map((v,h)=>v*(cs+gs*occR*gw[h]));qc=wq;sc=sum(wq)||1}
     L.cool.push(qc.map(v=>coolDay*v/sc));L.heat.push(qh.map(v=>heatDay*v/sh*coolF));
-    L.home.push(hotel?W_GUEST.map((w,h)=>hotelPlug*w+commonDay*(h>=7&&h<21?0.6/14:0.4/10)):W_BASE.map(w=>baseYr/365*w));
-    L.laundry.push(W_LAUNDRY.map(w=>laundryDay*w));L.pump.push(W_WATER.map(w=>pumpDay*w));L.lift.push(W_LIFT.map(w=>liftRun*w+liftSb/24));
+    L.home.push(hotel?W_GUEST.map((w,h)=>hotelPlug*w+commonDay*(h>=7&&h<21?0.6/14:0.4/10)):W_BASE.map(w=>EV.misc/365*w));
+    ["light","cook","fridge","elec"].forEach(k=>L[k].push(WD[k].map(w=>hotel?0:EV[k]/365*w)));
+    L.laundry.push(W_LAUNDRY.map(w=>(laundryDay+(hotel?0:EV.wash/365))*w));L.pump.push(W_WATER.map(w=>pumpDay*w));L.lift.push(W_LIFT.map(w=>liftRun*w+liftSb/24));
     const wf=1-0.15*Math.cos(2*Math.PI*(m-6.3)/12)*(lat<0?-1:1);
     L.water.push(W_WATER.map(w=>whYr/365*wf*w));
     L.ev.push((p.evTime==="day"?W_EVD:W_EVN).map(w=>p.ev*0.3/365*w));
@@ -1053,7 +1078,7 @@ function model(p){
   // existing home: build the load from the appliance list instead
   let appRows=null;
   if(p.loadMode==="real"&&Array.isArray(p.apps)){
-    const cmax=Math.max(...cdd)||1,hmax=Math.max(...hdd)||1,B={base:"home",cool:"cool",heat:"heat",water:"water",ev:"ev",pool:"pool",lift:"lift",laundry:"laundry"};
+    const cmax=Math.max(...cdd)||1,hmax=Math.max(...hdd)||1,B={base:"home",cool:"cool",heat:"heat",water:"water",ev:"ev",pool:"pool",lift:"lift",laundry:"laundry",wash:"laundry",light:"light",cook:"cook",fridge:"fridge",elec:"elec"};
     Object.keys(L).forEach(k=>L[k]=MON.map(()=>new Array(24).fill(0)));
     appRows=p.apps.map(a=>{const kind=(APPS[a.k]||{}).kind||"base",w=winW(a.s,a.h),kwh=(+a.q||0)*(+a.w||0)/1000;let yr=0;
       for(let m=0;m<12;m++){const sf=kind==="cool"?cdd[m]/cmax:kind==="heat"?hdd[m]/hmax:kind==="water"?1-0.15*Math.cos(2*Math.PI*(m-6.3)/12)*(lat<0?-1:1):1;
@@ -1100,7 +1125,7 @@ function model(p){
   const roofCap=sum(order.map(f=>f.cap)),exN=Math.min(roofCap,Math.max(0,Math.round((+p.exPV||0)*1000/p.panelW))),exB=Math.max(0,+p.exB||0);
   const maxP=p.planPV==="keep"?0:Math.min(200,roofCap-exN);
   const Mo={st,lat,latR,cl,g,ins,UAc,UAh,comp,btu,need,unit,systems,peakHour:ph,Td,rooms,heatDesign,capAt,cop,
-    L,total,annual,price,modelled,scale,order,maxP,cdd,hdd,RD,appRows,der,whYr,baseYr,costW,costB,metering,exportRate,exportCap,TF,flat,useM,baseBills,billOf,
+    L,total,annual,price,modelled,scale,order,maxP,cdd,hdd,RD,appRows,der,whYr,baseYr,EV,EST,costW,costB,metering,exportRate,exportCap,TF,flat,useM,baseBills,billOf,
     pl,plF,fixedCost,calib,co2f:+p.co2>0?+p.co2:(CO2F[st.region]||(US_STATES.has(st.region)?0.37:0.45)),
     hotel,occ,extra,TOU:TOUc,hp,gridCharge:hp?p.gridCharge!==false:false,BATTS,bMax,bStep,exN,exB,roofCap};
   // "today": the bill with whatever is already installed (no solar → the plain bill)
@@ -1231,7 +1256,7 @@ function isMetric(){return S.units==="metric"||(S.units==="auto"&&!US_STATES.has
 
 // ---------- state ----------
 const DEF={cityLabel:"Austin, TX",coord:null,front:180,roof:"gable",pitch:23,roofColor:"medium",stories:1,aspect:1.5,ceil:"9",windows:"avg",insul:"avg",shade:"some",
-  units:"auto",money:"local",loadMode:"est",mode:"existing",detail:false,billAvg:"",billUnit:"money",dayUse:"mixed",roofArea:"",addAC:0,addACsize:"12000",addACh:8,addEv:0,addEvTime:"night",addOther:0,
+  units:"auto",money:"local",loadMode:"est",mode:"existing",detail:false,billAvg:"",billUnit:"money",dayUse:"mixed",roofArea:"",totalArea:"",use:{},addAC:0,addACsize:"12000",addACh:8,addEv:0,addEvTime:"night",addOther:0,
   custName:"",custPhone:"",custEmail:"",custAddr:"",custNotes:"",goal:"value",billM:["","","","","","","","","","","",""],om:0.5,co2:"",loanOn:false,loanDown:20,loanRate:9,loanYears:5,propLang:"auto",propNo:"",
   exPV:"",exB:"",planPV:"opt",planB:"opt",fixB:10,backup:"ess",bldg:"home",lifts:0,liftType:"std",hOcc:65,laundry:true,roofUse:100,tou:null,gridCharge:true,apps:null,rooms:[{type:"living",name:"Living room",area:320,facade:"front"},{type:"kitchen",name:"Kitchen",area:180,facade:"back"},{type:"dining",name:"Dining room",area:140,facade:"back"},
     {type:"bedroom",name:"Primary bedroom",area:200,facade:"s2"},{type:"bedroom",name:"Bedroom 2",area:130,facade:"s1"},{type:"bedroom",name:"Bedroom 3",area:130,facade:"front"},{type:"office",name:"Office",area:110,facade:"s1"}],
@@ -1538,9 +1563,11 @@ const facLabel=(k,g)=>k==="int"?"No outside wall":`${{front:"Front",back:"Back",
 function renderRooms(g){
   const box=$("rooms");const focus=document.activeElement&&document.activeElement.id;
   const typing=box.contains(document.activeElement)&&box.children.length===S.rooms.length;
-  if(!typing)box.innerHTML=S.rooms.map((r,i)=>`<div class="room"><input type="text" id="rn${i}" value="${esc(r.name)}" aria-label="Room name"><input type="number" id="rc${i}" min="1" step="1" value="${r.n||1}" aria-label="How many ${esc(r.name)}"><input type="number" id="ra${i}" min="0" step="${S.unit==="m"?1:10}" value="${S.unit==="m"?Math.round(r.area*0.0929):Math.round(r.area)}" aria-label="Area of ${esc(r.name)}"><select id="rf${i}" aria-label="Which wall ${esc(r.name)} faces">${["front","back","s1","s2","int"].map(k=>`<option value="${k}" ${r.facade===k?"selected":""}>${facLabel(k,g)}</option>`).join("")}</select><button class="x" data-i="${i}" type="button" aria-label="Remove ${esc(r.name)}">×</button></div>`).join("");
-  if(!typing&&focus&&/^r[nacf]\d+$/.test(focus)&&$(focus))$(focus).focus();
-  $("areaTotal").textContent=`Rooms ${area(g.roomsArea)} + ${S.halls}% → home ${area(g.sqft)} · footprint ${area(g.fp)}`}
+  if(!typing)box.innerHTML=S.rooms.map((r,i)=>`<div class="room"><input type="text" id="rn${i}" value="${esc(r.name)}" aria-label="Room name"><input type="number" id="rc${i}" min="1" step="1" value="${r.n||1}" aria-label="How many ${esc(r.name)}"><input type="number" id="ra${i}" min="0" step="${S.unit==="m"?1:10}" value="${S.unit==="m"?Math.round(r.area*0.0929):Math.round(r.area)}" aria-label="Area of ${esc(r.name)}"><select id="rl${i}" aria-label="Floor of ${esc(r.name)}"><option value="0" ${!(+r.fl)?"selected":""}>All</option>${Array.from({length:S.stories},(_,k)=>`<option value="${k+1}" ${+r.fl===k+1?"selected":""}>${k+1}${k+1===S.stories&&S.stories>1?" top":""}</option>`).join("")}</select><select id="rf${i}" aria-label="Which wall ${esc(r.name)} faces">${["front","back","s1","s2","int"].map(k=>`<option value="${k}" ${r.facade===k?"selected":""}>${facLabel(k,g)}</option>`).join("")}</select><button class="x" data-i="${i}" type="button" aria-label="Remove ${esc(r.name)}">×</button></div>`).join("");
+  if(!typing&&focus&&/^r[nacfl]\d+$/.test(focus)&&$(focus))$(focus).focus();
+  $("totalAreaUnit").textContent=S.unit==="m"?"m²":"ft²";if(document.activeElement!==$("totalArea"))$("totalArea").value=+S.totalArea>0?Math.round(MET()?S.totalArea*0.0929:S.totalArea):"";
+  const fx=S.mode==="existing"&&+S.roofArea>0,ta=+S.totalArea>0&&!fx;
+  $("areaTotal").innerHTML=`<b>Whole home ${area(g.sqft)}</b> over ${S.stories} floor${S.stories>1?"s":""} (${area(g.fp)} each). `+(fx?`From the roof area × floors. `:ta?`You entered it. Rooms add up to ${area(g.roomsArea)}, leaving ${area(Math.max(0,g.sqft-g.roomsArea))} for halls, stairs and baths.`+(g.roomsArea>g.sqft?' <span class="pill warn">rooms are bigger than the total</span>':""):`Rooms ${area(g.roomsArea)} + ${S.halls}% for halls, stairs and baths.`)}
 function compassSvg(){const a=S.front;$("compassSvg").innerHTML=`<circle r="30" fill="var(--sunk)" stroke="var(--line)"/><text x="0" y="-19" text-anchor="middle" font-size="10" font-weight="700" fill="var(--bad)" font-family="var(--f-mono)">N</text><text x="21" y="4" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="var(--f-mono)">E</text><text x="0" y="26" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="var(--f-mono)">S</text><text x="-21" y="4" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="var(--f-mono)">W</text><g transform="rotate(${a})"><rect x="-9" y="-6" width="18" height="12" rx="1" fill="var(--card)" stroke="var(--ink)" stroke-width="1.5"/><path d="M0 -7 L0 -17 M-3.5 -13 L0 -17 L3.5 -13" stroke="var(--sun)" stroke-width="2" fill="none"/></g>`}
 
 function fullUpdate(){
@@ -1665,7 +1692,13 @@ function howText(p,g,st){
   return {cool:`House heat leak ${UA} (walls, roof, windows, air leaks) × ${dd(cdd)} of cooling a year × 24 h, ÷ AC efficiency SEER2 ${(+p.seer).toFixed(1)}, +${humid?20:5}% for humidity${duct?", +10% duct loss":""}${sc}.`,
     heat:p.heat==="gas"?"Not electric.":`Heat leak × ${dd(hdd)} of heating a year ÷ ${p.heat==="hp"?`heat pump COP ${M.cop.toFixed(1)}`:"1 (electric resistance)"}${sc}.`,
     water:`(600 + 550 × ${p.occ} people) kWh a year${p.water==="hpwh"?" ÷ 3 for a heat-pump heater":""}, a bit more in winter${sc}.`,
-    home:`2,200 kWh + 900 × ${p.occ} people + ${sz} (fridge, lights, cooking, laundry, TV, standby)${sc}.`,
+    ...(()=>{const us=US_STATES.has(st.region),o=p.use||{},mine=k=>o[k]!==""&&o[k]!=null?" (your number)":"",n=p.occ,A=met?`${fmt(g.sqft*0.0929)} m²`:`${fmt(g.sqft)} ft²`;
+      return {light:(mine("light")||`${A} × ${us?"5.5":"4.5"} kWh a year per m² (LEDs about ${us?3:2.5} W per m², lit 5 h a day), mostly 18:00–23:00`)+sc+".",
+        cook:(mine("cook")||`${us?300:150} + ${us?100:150} × ${n} people (rice cooker, hob, kettle, microwave), peaks at lunch and 17:00–20:00`)+sc+".",
+        fridge:(mine("fridge")||`${us?700:400} kWh a year (${us?"a fridge plus a freezer":"one modern fridge"}), round the clock`)+sc+".",
+        laundry:(mine("wash")||`${us?150:50} + ${us?250:60} × ${n} people (washing machine${us?", dryer":""}, dishwasher), daytime`)+sc+".",
+        elec:(mine("elec")||`${us?400:200} + ${us?400:250} × ${n} people (TV, computers, phone charging, Wi-Fi), mostly evenings`)+sc+".",
+        home:(mine("misc")||`${us?800:200} + ${us?200:100} × ${n} people (fans, iron, hair dryer, water purifier, standby)`)+sc+"."}})(),
     ev:`${met?fmt(p.ev*1.609)+" km × 0.19 kWh/km":fmt(p.ev)+" mi × 0.3 kWh/mi"}${sc}.`,
     ...(M.hotel?(()=>{const X=M.extra,on=fmt(X.gN*X.occR,1);return {
       cool:`Same heat-leak × degree-day method, but guest rooms are cooled only when sold (${fmt(X.occR*100)}% of nights, mostly evening to morning) and corridors aren't cooled: ${fmt(X.coolF*100)}% of a fully cooled building${sc}.`,
@@ -1691,7 +1724,7 @@ function appTable(){
     const f=tb.tFoot&&tb.tFoot.rows[0];if(f){f.cells[1].innerHTML=`<b>${fmt(M.annual/12)}</b>`;f.cells[2].innerHTML=`<b>${usd(sum(M.baseBills)/12)}</b>`}}
   else tb.innerHTML=`<thead><tr><th>Appliance</th><th class="n">How many</th><th class="n">Watts</th><th class="n">Hours / day</th><th>Starts at</th><th>When it runs (${MON[S.month]})</th><th class="n">kWh / month</th><th class="n">Cost / month</th><th></th></tr></thead><tbody>`+
     M.appRows.map((a,i)=>`<tr><td><input class="nm" id="an${i}" value="${esc(a.n)}" aria-label="Appliance name"></td><td><input class="num" type="number" id="aq${i}" min="0" step="1" value="${a.q}" aria-label="How many"></td><td><input class="num" type="number" id="aw${i}" min="0" step="10" value="${a.w}" aria-label="Watts"></td><td><input class="num" type="number" id="ah${i}" min="0" max="24" step="0.25" value="${a.h}" aria-label="Hours per day"></td><td><select id="as${i}" aria-label="Starts at">${hrs.map(t=>`<option value="${t}" ${Math.abs(t-a.s)<0.01?"selected":""}>${fmtHour(t)}</option>`).join("")}</select></td><td><div class="tl" title="Orange: runs while the sun is up. Blue: after dark.">${a.w24.map((w,h)=>`<i class="${w>0?"on":""} ${dl[h]?"d":""}" style="${w>0&&w<1?`opacity:${0.4+0.6*w}`:""}"></i>`).join("")}</div></td><td class="n">${fmt(a.yr*M.scale/12)}</td><td class="n">${usd(a.yr*M.scale/12*M.price)}</td><td><button class="x" data-i="${i}" type="button" aria-label="Remove ${esc(a.n)}">×</button></td></tr>`).join("")+
-    `</tbody><tfoot><tr><td colspan="6"><b>Total</b>${M.scale!==1?` (scaled ×${M.scale.toFixed(2)} to match your bills)`:""}</td><td class="n"><b>${fmt(M.annual/12)}</b></td><td class="n"><b>${usd(sum(M.baseBills)/12)}</b></td><td></td></tr></tfoot>`;
+    `</tbody><tfoot><tr><td colspan="7"><b>Total</b>${M.scale!==1?` (scaled ×${M.scale.toFixed(2)} to match your bills)`:""}</td><td class="n"><b>${fmt(M.annual/12)}</b></td><td class="n"><b>${usd(sum(M.baseBills)/12)}</b></td><td></td></tr></tfoot>`;
   if(focus&&/^a[nqwhs]\d+$/.test(focus)&&$(focus))$(focus).focus();
   let night=0,dayE=0;M.appRows.forEach(a=>{const d=a.w24.reduce((s,w,h)=>s+(dl[h]?w:0),0),tot=a.w24.reduce((s,w)=>s+w,0)||1;dayE+=a.yr*d/tot;night+=a.yr*(1-d/tot)});
   const movable=M.appRows.filter(a=>["wash","dryer","dish","wh","pump","iron","ev","pool"].includes(a.k)&&a.w24.some((w,h)=>w>0&&!dl[h]));
@@ -1786,7 +1819,9 @@ function renderStatic(){
   $("fixBField").hidden=p.planB!=="fixed";$("panels").disabled=p.planPV==="keep";$("batt").disabled=p.planB!=="opt";
   $("exHint").textContent=M.exN||M.exB?`Today: ${M.exN?`${M.exN} panels (${fmt(M.exN*p.panelW/1000,1)} kWp) on the best roof faces`:""}${M.exN&&M.exB?" and ":""}${M.exB?`a ${fmt(M.exB,1)} kWh battery`:""}. Bill with them ${usd(M.nowCost/12)}/month instead of ${usd(sum(M.baseBills)/12)}. Room left for ${Math.max(0,M.roofCap-M.exN)} more panels.`:"Leave empty if nothing is installed. Whatever is there becomes \"today\", so savings count only what you add.";
   $("storiesOut").textContent=p.stories;$("roofUseOut").textContent=(p.roofUse||100)+"%";$("liftsOut").textContent=p.lifts?p.lifts:"none";$("liftTypeField").hidden=!p.lifts;
-  const H=M.hotel,X=M.extra;$("occField").hidden=H;$("hotelFields").hidden=!H;$("liveHead").textContent=H?"How the hotel runs":"How you live";$("hOccOut").textContent=(p.hOcc||0)+"%";
+  const H=M.hotel,X=M.extra;$("occField").hidden=H;$("useField").hidden=H||p.loadMode==="real";
+  ["light","cook","fridge","wash","elec","misc"].forEach(k=>{const e=$("use_"+k);e.placeholder=fmt(M.EST[k]);if(document.activeElement!==e)e.value=p.use&&p.use[k]!==""&&p.use[k]!=null?p.use[k]:""});
+  $("useHint").textContent=`Together ${fmt(M.baseYr)} kWh a year (${fmt(M.baseYr/12)} a month) before cooling, heating, hot water and the car. Each has its own time of day: cooking and lights peak in the evening, which is what a battery covers.`;$("hotelFields").hidden=!H;$("liveHead").textContent=H?"How the hotel runs":"How you live";$("hOccOut").textContent=(p.hOcc||0)+"%";
   $("hotelHint").textContent=H?(X.gN?`${X.gN} guest rooms → about ${fmt(X.gN*X.occR*1.8)} guests a night + ${X.staff} staff. Add "Guest room" rows in Rooms with how many of each.`:`Add "Guest room" rows in Rooms (set how many of each).`):"";$("aspectOut").textContent=(+p.aspect).toFixed(1);
   $("hallsOut").textContent=p.halls+"%";$("occOut").textContent=p.occ;
   $("panelHint").textContent=`${fmt(PANEL.w*PANEL.h,2)} m² each · ${fmt(p.panelW/(PANEL.w*PANEL.h)/10,1)}% efficient · ${panelFmt(p).cells}. Roof fit, 3D view and quote use this size.`;
@@ -1821,17 +1856,17 @@ function renderStatic(){
     $("heatCheck").innerHTML=`Heating check: on a ${tF(cl.Twin)} winter design night the house needs ${cap(M.heatDesign)}. This heat pump gives about ${cap(capH)} at that temperature. <span class="pill ${ok?"good":"warn"}">${ok?"covers it":"needs backup heat or a cold-climate model"}</span>`}
   else $("heatCheck").textContent=`Heating need on a ${tF(cl.Twin)} design night: ${capBoth(M.heatDesign)}.`;
   const RT=ruleOfThumb(st),ruleHead=a=>{const b=RT.perFt2*a;return HEADS.find(x=>x>=b*0.95)||36000};
-  let tot=0,totR=0;$("roomTbl").innerHTML=`<thead><tr><th>Room</th><th class="n">Area</th><th>Wall faces</th><th class="n">Peak load</th><th class="n">Peak time</th><th class="n">Our calc per ${MET()?"m²":"ft²"}</th><th class="n">Split unit (our calc)</th><th class="n">Shop rule of thumb</th></tr></thead><tbody>`+
-    M.rooms.map(r=>{tot+=r.head*r.n;const rh=ruleHead(r.area);totR+=rh*r.n;return `<tr><td>${esc(r.name)}${r.n>1?` <span class="hint">× ${r.n}</span>`:""}</td><td class="n">${area(r.area)}</td><td>${facLabel(r.facade,g)}</td><td class="n">${cap(r.load)}</td><td class="n">${fmtHour(r.hour)}</td><td class="n">${r.area>0?fmt(r.load/(MET()?r.area*0.0929:r.area))+" BTU":"–"}</td><td class="n"><b>${fmt(r.head)} BTU</b> · ${HP[r.head]} HP</td><td class="n">${fmt(rh)} BTU${rh>r.head?' <span class="pill warn">bigger</span>':rh<r.head?' <span class="pill warn">smaller</span>':""}</td></tr>`}).join("")+
+  let tot=0,totR=0;$("roomTbl").innerHTML=`<thead><tr><th>Room</th><th class="n">Area</th><th>Floor</th><th>Wall faces</th><th class="n">Peak load</th><th class="n">Peak time</th><th class="n">Our calc per ${MET()?"m²":"ft²"}</th><th class="n">Split unit (our calc)</th><th class="n">Shop rule of thumb</th></tr></thead><tbody>`+
+    M.rooms.map(r=>{tot+=r.head*r.n;const rh=ruleHead(r.area);totR+=rh*r.n;return `<tr><td>${esc(r.name)}${r.n>1?` <span class="hint">× ${r.n}</span>`:""}</td><td class="n">${area(r.area)}</td><td>${r.fl?r.fl+(r.fl===S.stories&&S.stories>1?" (top, under the roof)":""):"all floors"}</td><td>${facLabel(r.facade,g)}</td><td class="n">${cap(r.load)}</td><td class="n">${fmtHour(r.hour)}</td><td class="n">${r.area>0?fmt(r.load/(MET()?r.area*0.0929:r.area))+" BTU":"–"}</td><td class="n"><b>${fmt(r.head)} BTU</b> · ${HP[r.head]} HP</td><td class="n">${fmt(rh)} BTU${rh>r.head?' <span class="pill warn">bigger</span>':rh<r.head?' <span class="pill warn">smaller</span>':""}</td></tr>`}).join("")+
     `</tbody><tfoot><tr><td colspan="6"><b>${sum(M.rooms.map(r=>r.n))} rooms</b> · halls and baths share air with the rooms around them</td><td class="n"><b>${fmt(tot)} BTU</b></td><td class="n">${fmt(totR)} BTU</td></tr></tfoot>`;
   $("roomNote").innerHTML=`Split units come in fixed sizes: 9,000 BTU (1 HP), 12,000 (1.5 HP), 18,000 (2 HP), 24,000 (2.5 HP). Our size comes from each room's walls, windows, the direction they face and the sun at each hour. The shop rule of thumb is ${RT.txt}. It only looks at floor area, so it can be too big for a shaded room and too small for a west-facing one with lots of glass.`;
   const yr=k=>sum(M.L[k].map((d,m)=>sum(d)*DAYS[m]));
   renderLoadExplain(p,g,st);
-  const U=[{k:"cool",name:"Cooling",color:"var(--u-cool)"},{k:"heat",name:"Heating",color:"var(--u-heat)"},{k:"home",name:M.hotel?"Rooms, lights, hot water, laundry, lifts":"Home, appliances, hot water",color:"var(--u-home)",parts:["home","water","laundry","lift","pump"]},{k:"add",name:"Planned additions",color:"var(--u-heat)"},{k:"ev",name:"Car & pool",color:"var(--u-ev)",parts:["ev","pool"]}]
+  const U=[{k:"cool",name:"Cooling",color:"var(--u-cool)"},{k:"heat",name:"Heating",color:"var(--u-heat)"},{k:"home",name:M.hotel?"Rooms, lights, hot water, laundry, lifts":"Home, appliances, hot water",color:"var(--u-home)",parts:["home","light","cook","fridge","elec","water","laundry","lift","pump"]},{k:"add",name:"Planned additions",color:"var(--u-heat)"},{k:"ev",name:"Car & pool",color:"var(--u-ev)",parts:["ev","pool"]}]
     .map(u=>({...u,values:MON.map((_,m)=>sum((u.parts||[u.k]).map(k=>sum(M.L[k][m])*DAYS[m])))})).filter(u=>sum(u.values)>1);
   legend($("useLegend"),U);stackChart($("useChart"),U,null,"kWh");
   const annual=M.annual,cost=annual*M.price;
-  const rows=[["Cooling",yr("cool"),"cool"],[p.loadMode==="real"?"Heating":"Heating"+(p.heat==="hp"?` (heat pump, COP ${M.cop.toFixed(1)})`:p.heat==="res"?" (electric)":" (not electric)"),yr("heat"),"heat"],["Hot water",yr("water"),"water"],[M.hotel?"Guest rooms, lobby & corridor lights, plugs":"Lights, appliances, electronics",yr("home"),"home"],["Laundry",yr("laundry"),"laundry"],["Elevators",yr("lift"),"lift"],["Water pumping to the roof tank",yr("pump"),"pump"],["Planned additions",yr("add"),"add"],["Electric car",yr("ev"),"ev"],["Pool pump",yr("pool"),"pool"]]
+  const rows=[["Cooling",yr("cool"),"cool"],[p.loadMode==="real"?"Heating":"Heating"+(p.heat==="hp"?` (heat pump, COP ${M.cop.toFixed(1)})`:p.heat==="res"?" (electric)":" (not electric)"),yr("heat"),"heat"],["Hot water",yr("water"),"water"],...(M.hotel?[["Guest rooms, lobby & corridor lights, plugs",yr("home"),"home"]]:[["Lighting",yr("light"),"light"],["Cooking",yr("cook"),"cook"],["Fridge & freezer",yr("fridge"),"fridge"],["TV, computers, phones, Wi-Fi",yr("elec"),"elec"],["Fans, iron, small appliances, standby",yr("home"),"home"]]),[M.hotel?"Laundry":"Laundry & dishes",yr("laundry"),"laundry"],["Elevators",yr("lift"),"lift"],["Water pumping to the roof tank",yr("pump"),"pump"],["Planned additions",yr("add"),"add"],["Electric car",yr("ev"),"ev"],["Pool pump",yr("pool"),"pool"]]
     .filter(r=>r[1]>1||(r[2]==="heat"&&p.loadMode!=="real"));
   const HOW=p.loadMode==="real"?{}:howText(p,g,st);
   $("useTbl").innerHTML=`<thead><tr><th>Use</th>${p.loadMode==="real"?"":"<th>How it's worked out</th>"}<th class="n">kWh / year</th><th class="n">Share</th><th class="n">Cost / year</th><th class="n">Per month</th></tr></thead><tbody>`+
@@ -2133,6 +2168,8 @@ $("qFront").innerHTML=[0,45,90,135,180,225,270,315].map(a=>`<option value="${a}"
 ["addACsize","addEvTime"].forEach(k=>$(k).addEventListener("input",e=>{S[k]=e.target.value;schedule()}));
 $("qStories").addEventListener("input",e=>{const v=parseInt(e.target.value);if(v>=1&&v<=12){S.stories=v;$("stories").value=v;schedule()}});
 $("qFront").addEventListener("input",e=>{S.front=+e.target.value;$("front").value=S.front;schedule()});
+["light","cook","fridge","wash","elec","misc"].forEach(k=>$("use_"+k).addEventListener("input",e=>{const v=e.target.value.trim();S.use={...(S.use||{}),[k]:v===""||isNaN(+v)||+v<0?"":String(+v)};S.manual=false;schedule()}));
+$("totalArea").addEventListener("input",e=>{const v=parseFloat(e.target.value);S.totalArea=isNaN(v)||v<=0?"":String(MET()?v/0.0929:v);S.manual=false;schedule()});
 $("roofArea").addEventListener("input",e=>{const v=parseFloat(e.target.value);S.roofArea=isNaN(v)||v<=0?"":String(MET()?v/0.0929:v);schedule()});
 $("billAvg").addEventListener("input",e=>{const v=parseFloat(e.target.value);S.billAvg=isNaN(v)||v<=0?"":String(S.billUnit==="money"&&CX.fx>1?v/CX.fx:v);schedule()});
 $("detailBtn").addEventListener("click",()=>{S.detail=!S.detail;schedule()});
@@ -2229,6 +2266,7 @@ $("rooms").addEventListener("input",e=>{const id=e.target.id,i=+id.slice(2);if(!
   else if(id.startsWith("rc")){const v=parseInt(e.target.value);if(!isNaN(v)&&v>=1)S.rooms[i].n=Math.min(200,v);else return}
   else if(id.startsWith("ra")){const v=parseFloat(e.target.value);if(!isNaN(v)&&v>=0)S.rooms[i].area=S.unit==="m"?v/0.0929:v;else return}
   else if(id.startsWith("rf"))S.rooms[i].facade=e.target.value;
+  else if(id.startsWith("rl"))S.rooms[i].fl=+e.target.value;
   S.manual=false;schedule()});
 $("rooms").addEventListener("click",e=>{const b=e.target.closest(".x");if(!b||S.rooms.length<=1)return;S.rooms.splice(+b.dataset.i,1);S.manual=false;schedule()});
 $("addRoom").addEventListener("click",()=>{const t=$("addType").value,n=S.rooms.filter(r=>r.type===t).length;
