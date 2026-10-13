@@ -496,8 +496,8 @@ footer{margin-top:28px;color:var(--muted);font-size:12.5px;max-width:90ch}
             <span class="hint" id="meterHint"></span></div>
           <div class="row2 field">
             <div class="field"><label for="exportRate">Export $/kWh</label><input type="number" id="exportRate" step="0.005"></div>
-            <div class="field"><label for="panelW">Panel watts</label><input type="number" id="panelW" step="5"></div>
-          </div>
+            <div class="field"><label for="panelW">Panel watts</label><input type="number" id="panelW" step="5"></div></div>
+          <div class="field"><label for="panelFmt">Panel size (standard modules on the market)</label><select id="panelFmt"><option value="s">1722 × 1134 mm · 400–435 W · 1.95 m²</option><option value="m">1762 × 1134 mm · 430–455 W · 2.00 m²</option><option value="l">2278 × 1134 mm · 560–600 W · 2.58 m² (≈28 kg)</option><option value="xl">2382 × 1134 mm · 600–635 W · 2.70 m² (≈33 kg)</option></select><span class="hint" id="panelHint"></span></div>
           <div class="row2 field">
             <div class="field"><label for="exportCap">Max export, % of output</label><input type="number" id="exportCap" step="5" min="0" max="100"></div>
             <div class="field"></div>
@@ -858,7 +858,11 @@ const APPS={ac9:{n:"Air conditioner 9,000 BTU (1 HP)",w:650,h:8,s:21,kind:"cool"
 // share of each hour an appliance runs, for a run of d hours starting at hour s
 function winW(s,d){const w=new Array(24).fill(0);let t=+s||0,left=clamp(+d||0,0,24);while(left>1e-9){const fl=Math.floor(t),step=Math.min(left,fl+1-t);w[((fl%24)+24)%24]+=step;t+=step;left-=step}return w}
 const UNITS=[1.5,2,2.5,3,3.5,4,5];
-const PANEL={w:1.134,h:1.722}; // metres, typical 430 W module
+// standard module formats sold today (width × length in metres, usual power range); PANEL follows the chosen one
+const PANELS={s:{w:1.134,h:1.722,lo:400,hi:435,def:420,cells:"108 half cells (M10)"},m:{w:1.134,h:1.762,lo:430,hi:455,def:440,cells:"108 half cells, rectangular"},l:{w:1.134,h:2.278,lo:560,hi:600,def:580,cells:"144 half cells (M10)"},xl:{w:1.134,h:2.382,lo:600,hi:635,def:615,cells:"132 half cells, rectangular"}};
+const PANEL={w:1.134,h:1.762};
+const panelFmt=p=>PANELS[p.panelFmt]||PANELS.m;
+const panelDims=p=>{const f=panelFmt(p);return `${Math.round(f.h*1000)} × ${Math.round(f.w*1000)} mm`};
 const sum=a=>{let s=0;for(const v of a)s+=v;return s};
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 function phi(z){return Math.exp(-z*z/2)/Math.sqrt(2*Math.PI)}
@@ -900,6 +904,7 @@ function compassName(az){return ["N","NE","E","SE","S","SW","W","NW"][Math.round
 // ---- house geometry ----
 const rn=r=>Math.max(1,Math.round(+r.n||1));
 function geom(p){
+  {const f=panelFmt(p);PANEL.w=f.w;PANEL.h=f.h}
   const roomsArea=sum(p.rooms.map(r=>(+r.area||0)*rn(r)));
   // existing building: the roof area the installer measured sets the footprint
   const exRoof=p.mode==="existing"&&+p.roofArea>0,sqft=exRoof?+p.roofArea*p.stories:Math.max(300,roomsArea/(1-p.halls/100));
@@ -1231,7 +1236,7 @@ const DEF={cityLabel:"Austin, TX",coord:null,front:180,roof:"gable",pitch:23,roo
   exPV:"",exB:"",planPV:"opt",planB:"opt",fixB:10,backup:"ess",bldg:"home",lifts:0,liftType:"std",hOcc:65,laundry:true,roofUse:100,tou:null,gridCharge:true,apps:null,rooms:[{type:"living",name:"Living room",area:320,facade:"front"},{type:"kitchen",name:"Kitchen",area:180,facade:"back"},{type:"dining",name:"Dining room",area:140,facade:"back"},
     {type:"bedroom",name:"Primary bedroom",area:200,facade:"s2"},{type:"bedroom",name:"Bedroom 2",area:130,facade:"s1"},{type:"bedroom",name:"Bedroom 3",area:130,facade:"front"},{type:"office",name:"Office",area:110,facade:"s1"}],
   halls:20,occ:4,setpoint:76,system:"central",seer:15.2,heat:"hp",water:"elec",ev:0,evTime:"night",pool:false,billKwh:"",price:"",
-  metering:"auto",exportRate:"",exportCap:"",priceMode:"auto",tiers:null,panelW:430,costW:"",costB:"",incent:0,reserve:10,esc:3,disc:5,loss:14,deg:0.5,ess:0.8,hours:12,month:6,hour:14};
+  metering:"auto",exportRate:"",exportCap:"",priceMode:"auto",tiers:null,panelW:440,panelFmt:"m",costW:"",costB:"",incent:0,reserve:10,esc:3,disc:5,loss:14,deg:0.5,ess:0.8,hours:12,month:6,hour:14};
 let S=JSON.parse(JSON.stringify(DEF));
 // the chosen sizes travel with the project too
 const KEEP=["panels","batt","pick"];
@@ -1613,8 +1618,9 @@ function quickRules(){
   $("qrOut").innerHTML=!A?`<div><div class="k">Type the floor area to get a size</div></div>`:
     box(`By floor area (${fmt(vn?600:RT.perFt2/0.0929*1,0)} BTU/m²${vn?"":` · ${fmt(RT.perFt2)} BTU/ft²`})`,`${fmt(byA)} BTU/h`,`${fmt(byA/3412,1)} kW · ${fmt(byA/3.412/A)} W/m² after adjustments`)+
     (vn?box(`By volume (200 BTU/m³ × ${fmt(A*H,0)} m³)`,`${fmt(byV)} BTU/h`,H>3.05?"higher than by area: tall ceiling":H<2.95?"lower than by area: low ceiling":"same as by area at a 3 m ceiling"):"")+
-    box("Split unit to buy",sizeTxt,sizeSub+` · next size up from ${fmt(need)} BTU/h`,1)+
-    box(`Heating, ${hr[2]}`,hot?"not needed":`${fmt(hW/1000,1)} kW`,hot?`coldest design night here is about ${fmt(winC)}°C`:`${fmt((hr[0]+hr[1])/2)} W/m² at 2.5 m ceiling, 19 °C inside · ${fmt(hW*3.412)} BTU/h`);
+    box("Split unit to buy",sizeTxt,sizeSub+` of cooling · next size up from ${fmt(need)} BTU/h`,1)+
+    box("Electricity it draws",`≈ ${fmt((head||units*24000)/(S.seer*0.78*1000),2)} kW`,`at full output, with efficiency ${(S.seer*0.78/3.412).toFixed(1)} (EER). Over a season it averages ${(S.seer/3.412).toFixed(1)} (CSPF), so the bill uses that`)+
+    box(`Heating, ${hr[2]}`,hot?"not needed":`${fmt(hW/1000,1)} kW`,hot?`coldest design night here is about ${fmt(winC)}°C`:`${fmt((hr[0]+hr[1])/2)} W/m² at 2.5 m ceiling, 19 °C inside · electricity ≈ ${fmt(hW/1000/3,1)} kW with a heat pump (COP 3), ${fmt(hW/1000,1)} kW with an electric heater`);
   const w=b=>fmt(b/3.412),fa=b=>fmt(b*0.0929);
   $("qrCool").innerHTML=`<thead><tr><th>Rule</th><th class="n">BTU/h per m²</th><th class="n">W per m²</th><th>Source</th></tr></thead><tbody>`+
     [["Vietnam shop rule, by floor area",fmt(600),w(600),"Vietnamese retailers' guides"],
@@ -1630,7 +1636,7 @@ function quickRules(){
     [["Passive house (label limit)",[10,10]],["Well insulated (RT 2012 / RE 2020)",[60,75]],["Average insulation",[75,100]],["Poorly insulated",[100,120]],["No insulation, before 1975",[150,150]]]
     .map(r=>`<tr><td>${r[0]}</td><td class="n">${r[1][0]===r[1][1]?r[1][0]:r[1].join("–")}</td><td class="n">${r[1].map(x=>fmt(x*3.412)).filter((x,i,a)=>a.indexOf(x)===i).join("–")}</td></tr>`).join("")+
     `<tr><td colspan="3" class="hint">For a 2.5 m ceiling and 19 °C inside; scale up for taller rooms and colder towns. French installer practice; the 10 W/m² is the Passivhaus criterion.</td></tr></tbody>`;
-  $("qrConv").innerHTML=`<tbody>`+[["1 kW of cooling","3,412 BTU/h"],["1 ton (US)","12,000 BTU/h = 3.5 kW"],["\"1 HP\" (1 ngựa) on a Vietnamese label","≈ 9,000 BTU/h = 2.6 kW of cooling (a market label, not 746 W)"],["Standard split sizes","9,000 · 12,000 · 18,000 · 24,000 BTU/h"],["1 m²","10.76 ft²"]]
+  $("qrConv").innerHTML=`<tbody>`+[["1 kW of cooling","3,412 BTU/h"],["Cooling output vs electricity","An AC moves 3–6 kW of heat for each kW of electricity (EER at full power, CSPF over a season). A 9,000 BTU (2.6 kW) unit draws about 0.7–0.8 kW. 5 stars in Vietnam: CSPF ≥ 5.2 (TCVN 7830:2021)"],["Heating output vs electricity","Electric heater: 1 kW in = 1 kW of heat. Heat pump: 2–4 kW of heat per kW, less on cold nights"],["Motors (pumps, fans)","Nameplate is shaft power; the motor draws 20–40% more"],["1 ton (US)","12,000 BTU/h = 3.5 kW"],["\"1 HP\" (1 ngựa) on a Vietnamese label","≈ 9,000 BTU/h = 2.6 kW of cooling (a market label, not 746 W)"],["Standard split sizes","9,000 · 12,000 · 18,000 · 24,000 BTU/h"],["1 m²","10.76 ft²"]]
     .map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")+"</tbody>";
   $("qrNote").innerHTML=`Adjustments stack: area × rule, then ±10% for sun, then add people and kitchen.${vn?" In Vietnam the larger of the area and volume results is used, so tall rooms get a bigger unit.":""} A unit within 5% under the need is accepted, as shops do. An oversized unit cycles on and off, dries the air poorly and costs more, so don't round up twice.`}
 ["qrA","qrH","qrSun","qrPpl","qrIns","qrKit"].forEach(id=>$(id).addEventListener("input",quickRules));
@@ -1640,8 +1646,8 @@ function acOptions(p,g,cl){
   const splitW=tot/(20*0.78*1000)*1000;
   $("acOpt").innerHTML=`<div class="vcard ${!us?"best":""}"><h4>Split units, one per room ${!us?'<span class="pill good">recommended here</span>':""}</h4>
     <div class="sz">Inverter wall units. Cool only the rooms you use; no ducts to lose cold air.</div>
-    <ul>${heads.map(r=>`<li>${esc(r.name)}${r.n>1?` (${r.n} rooms)`:""}: <b>${r.n>1?r.n+" × ":""}${fmt(r.head)} BTU</b> (${HP[r.head]} HP, ${fmt(r.head/3412,1)} kW)</li>`).join("")}</ul>
-    <dl style="margin-top:10px"><dt>Total indoor units</dt><dd>${fmt(tot)} BTU</dd><dt>Cooling energy / year</dt><dd>≈ ${fmt(runS)} kWh</dd></dl></div>
+    <ul>${heads.map(r=>`<li>${esc(r.name)}${r.n>1?` (${r.n} rooms)`:""}: <b>${r.n>1?r.n+" × ":""}${fmt(r.head)} BTU</b> (${HP[r.head]} HP): ${fmt(r.head/3412,1)} kW of cooling, draws ≈ ${fmt(r.head/(p.seer*0.78*1000),2)} kW</li>`).join("")}</ul>
+    <dl style="margin-top:10px"><dt>Total indoor units</dt><dd>${fmt(tot)} BTU = ${fmt(tot/3412,1)} kW of cooling</dd><dt>Electricity if all run flat out</dt><dd>≈ ${fmt(tot/(p.seer*0.78*1000),1)} kW</dd><dt>Cooling energy / year</dt><dd>≈ ${fmt(runS)} kWh</dd></dl></div>
     ${M.hotel?`<div class="vcard"><h4>VRF / VRV system <span class="pill good">common in hotels</span></h4>
     <div class="sz">One or a few outdoor units on the roof, a small indoor unit in each room, refrigerant pipes instead of ducts. Less roof space and better part-load efficiency than ${heads.reduce((a,r)=>a+r.n,0)} separate splits; higher up-front cost.</div>
     <ul><li>Indoor units as listed on the left (${fmt(tot)} BTU connected)</li><li>Outdoor capacity about <b>${fmt(M.btu/3412,0)} kW</b> (${fmt(M.btu)} BTU/h): the whole building at its peak hour, ${fmt(M.btu/tot*100)}% of the connected indoor units, because rooms peak at different times and are not all sold.</li></ul></div>`:""}
@@ -1724,7 +1730,7 @@ function waterfall(p){
     ...(sh<1?[[`Shade from trees (−${fmt((1-sh)*100)}%)`,"your shade setting",afterSh,"var(--s-solar)"]]:[]),
     [`Hot panels (−${fmt(tLoss/afterSh*100)}%)`,"−0.35% per °C above 25°C",final,"var(--s-batt)"]];
   $("wf").innerHTML=R.map(r=>`<div class="r"><div><b>${r[0]}</b><div class="hint">${r[1]}</div></div><div class="b"><i style="left:0;width:${r[2]/ideal*100}%;background:${r[3]}"></i></div><div class="v">${fmt(r[2],2)} kWh/day</div></div>`).join("");
-  $("wfNote").innerHTML=`<b>No, we don't multiply by 20–30%.</b> Panel efficiency (about ${fmt(eff*100)}% for a ${fmt(areaM2,2)} m², ${p.panelW} W panel) is already inside the ${p.panelW} W label: it means ${p.panelW} W under full sun of 1,000 W per m² at 25°C. A full-sun hour gives ${p.panelW} Wh before losses. In practice one panel here gives about <b>${fmt(clearW)} W</b> at noon on a clear day (${fmt(clearW/p.panelW*100)}% of the label) and about ${fmt(peak)} W at noon on an average day once clouds are counted, and makes <b>${fmt(final,2)} kWh a day</b> on average (${fmt(f.yield)} kWh a year). That is ${fmt(final/(p.panelW/1000*24)*100)}% of what it would make running at ${p.panelW} W around the clock, because the sun is low or absent most hours.`}
+  $("wfNote").innerHTML=`<b>No, we don't multiply by 20–30%.</b> Panel efficiency (about ${fmt(eff*100,1)}% for a standard ${panelDims(p)} panel of ${fmt(areaM2,2)} m² rated ${p.panelW} W) is already inside the ${p.panelW} W label: it means ${p.panelW} W under full sun of 1,000 W per m² at 25°C. A full-sun hour gives ${p.panelW} Wh before losses. In practice one panel here gives about <b>${fmt(clearW)} W</b> at noon on a clear day (${fmt(clearW/p.panelW*100)}% of the label) and about ${fmt(peak)} W at noon on an average day once clouds are counted, and makes <b>${fmt(final,2)} kWh a day</b> on average (${fmt(f.yield)} kWh a year). That is ${fmt(final/(p.panelW/1000*24)*100)}% of what it would make running at ${p.panelW} W around the clock, because the sun is low or absent most hours.`}
 function verdict(p){
   const run=(n,b)=>{const d=dispatch(M,pvHourly(M,n),b,p.reserve,false);return econ(M,p,n,b,d)};
   const c0=OPT.curves[0]||OPT.curves[OPT.bList[0]];let nb=0;c0.forEach((v,i)=>{if(v>c0[nb]+1)nb=i});
@@ -1783,7 +1789,8 @@ function renderStatic(){
   const H=M.hotel,X=M.extra;$("occField").hidden=H;$("hotelFields").hidden=!H;$("liveHead").textContent=H?"How the hotel runs":"How you live";$("hOccOut").textContent=(p.hOcc||0)+"%";
   $("hotelHint").textContent=H?(X.gN?`${X.gN} guest rooms → about ${fmt(X.gN*X.occR*1.8)} guests a night + ${X.staff} staff. Add "Guest room" rows in Rooms with how many of each.`:`Add "Guest room" rows in Rooms (set how many of each).`):"";$("aspectOut").textContent=(+p.aspect).toFixed(1);
   $("hallsOut").textContent=p.halls+"%";$("occOut").textContent=p.occ;
-  $("setpointOut").textContent=MET()?fmt((p.setpoint-32)/1.8,1)+"°C":p.setpoint+"°F";$("seerOut").textContent=(+p.seer).toFixed(1);
+  $("panelHint").textContent=`${fmt(PANEL.w*PANEL.h,2)} m² each · ${fmt(p.panelW/(PANEL.w*PANEL.h)/10,1)}% efficient · ${panelFmt(p).cells}. Roof fit, 3D view and quote use this size.`;
+  $("seerOut").title="";$("setpointOut").textContent=MET()?fmt((p.setpoint-32)/1.8,1)+"°C":p.setpoint+"°F";$("seerOut").textContent=`${(+p.seer).toFixed(1)} · CSPF ≈ ${(p.seer/3.412).toFixed(1)}`;
   $("evOut").textContent=p.ev?(MET()?fmt(Math.round(p.ev*1.609/100)*100)+" km/yr":fmt(p.ev)+" mi/yr"):"none";$("evTimeField").hidden=!p.ev||p.loadMode==="real";
   moneyInputs();
   $("priceHint").textContent=`Average for ${st.region}: ${ppk(st.price)}/kWh. ${+p.price>0?"Using your price.":"Using the average."}`;
@@ -1803,7 +1810,7 @@ function renderStatic(){
   quickRules();
   const cool=sum(M.L.cool.map((d,m)=>sum(d)*DAYS[m]));
   const M2=model({...S,setpoint:S.setpoint+1}),c2=sum(M2.L.cool.map((d,m)=>sum(d)*DAYS[m]));
-  $("acKv").innerHTML=[["Cooling per year",fmt(cool)+" kWh"],["Cooling cost",usd(cool*M.price)+"/yr"],["Power draw running",fmt(M.unit*M.systems*12000/(p.seer*0.78*1000),1)+" kW"],[MET()?"Each 1°C warmer saves":"Each 1°F warmer saves",cool>0?fmt((1-c2/cool)*100*(MET()?1.8:1))+"%":"—"]]
+  $("acKv").innerHTML=[["Cooling per year",fmt(cool)+" kWh"],["Cooling cost",usd(cool*M.price)+"/yr"],["Cooling output at full power",fmt(M.unit*M.systems*12000/3412,1)+" kW"],["Electricity it draws then",fmt(M.unit*M.systems*12000/(p.seer*0.78*1000),1)+" kW"],[MET()?"Each 1°C warmer saves":"Each 1°F warmer saves",cool>0?fmt((1-c2/cool)*100*(MET()?1.8:1))+"%":"—"]]
     .map(r=>`<div><div class="k">${r[0]}</div><div class="v">${r[1]}</div></div>`).join("");
   const maxc=Math.max(...M.comp.map(c=>c[1]));
   $("acReceipt").innerHTML=M.comp.map(c=>`<tr><td>${c[0]}<span class="bar ${c[2]==="sun"?"sunb":""}" style="width:${Math.max(2,c[1]/maxc*100)}%"></span></td><td>${fmt(MET()?c[1]/3.412:c[1])}</td></tr>`).join("")+`<tr class="total"><td>Cooling load (${MET()?"W":"BTU/h"})</td><td>${fmt(MET()?M.btu/3.412:M.btu)}</td></tr>`;
@@ -1904,6 +1911,7 @@ function renderMethods(){
     ["AC size (cooling load)","Heat gains at the hottest hour of a design day, room by room: heat through walls, roof and glass (U × area × ΔT), sunshine through windows (solar heat gain coefficient × sun on each wall, by direction), sun heating the outside of walls and roof (sol-air temperature), air leaks, people and appliances, humidity, ducts.","ACCA Manual J, 8th ed. (ANSI/ACCA 2). US building code (IRC M1401.3) requires installers to use it.","Same structure, simplified. Manual J uses a table value for each wall, window and roof product, plus measured air leakage. We use typical values for the insulation and window choices you pick."],
     ["Design temperatures","Indoor 75°F (24°C) for cooling, 70°F (21°C) for heating. The outdoor design day is estimated from the city's hottest and coldest months plus a typical daily swing. Hourly temperatures follow the ASHRAE daily-range profile.","ASHRAE Handbook—Fundamentals climate tables (1% cooling and 99% heating design temperatures), as used in Manual J.","Close, not exact. We estimate the design temperature instead of reading the station's published value, so expect a few degrees of difference."],
     ["Equipment size","Smallest standard size (1.5–5 tons, or 6k–36k BTU/h heads) that covers at least 95% of the load.","ACCA Manual S: roughly 95–115% of the load for AC, up to 125% for heat pumps in cold climates.","Same rule. We don't use \"500 ft² per ton\" rules of thumb. They ignore climate, sun and insulation and usually oversize, and an oversized unit cycles on and off too often and leaves the air damp."],
+    ["Output vs electricity","Every size (BTU, kW of cooling or heating) is what the unit delivers. The bill, solar and battery use the electricity it draws: cooling output ÷ efficiency (SEER2/CSPF over the year, EER ≈ 0.78 × SEER2 at full power for the inverter and backup), heating ÷ heat-pump COP or ÷ 1 for electric heaters, pumping ÷ 45% pump efficiency, lifts from measured lift energy (VDI 4707).","AHRI 210/240 (SEER2), ISO 16358 / TCVN 7830:2021 (CSPF), EN 14825 (SCOP).","Same as the standards. Efficiency at very hot hours is lower than the seasonal average; we use the seasonal figure for energy and the full-power figure for peak draw."],
     ["Split units vs rule of thumb","Each room is sized from its own walls, windows, the direction they face, sun at every hour, people, appliances and humidity, then rounded up to the next standard size (9k, 12k, 18k, 24k BTU). The shop rule (≈600 BTU/m² in Vietnam, 20–25 BTU/ft² on the ENERGY STAR chart) is shown next to it.","ACCA Manual J room-by-room loads; manufacturers' selection guides for ductless units.","Same structure as Manual J. Area-only rules are what shops use; they ignore orientation and insulation and usually oversize, which costs more and dehumidifies poorly."],
     ["Load of an existing home","Your appliance list: how many × watts × hours a day, placed at the hours they run. Air conditioners are entered for the hottest month and scaled to other months by cooling degree-days; heaters by heating degree-days. If you enter yearly kWh from bills, the list is scaled to match.","Energy auditors do a walk-through inventory like this, then calibrate to 12 months of bills (ASHRAE Guideline 14 for calibration).","Same idea. Calibration to bills is the step that makes it reliable; without it, hours of use are guesses."],
     ["Existing building from bills","The average monthly bill (amount turned back into kWh through the EVN steps or business prices, or kWh directly) sets the yearly use; the local climate spreads it over the months; \"when is most power used\" shifts use into or out of 8:00–17:00. Monthly bills, if entered, replace the seasonal spread. Planned additions (AC units scaled by cooling degree-days, an electric car, other) are added on top. Usable roof area ÷ (panel area × 1.25 on flat roofs for row spacing, × 1.08 on pitched roofs) gives the panel count.","Energy auditors and solar designers start from 12 months of utility bills or interval meter data (ASHRAE Guideline 14).","Same starting point. Hourly meter data would pin down the day/night split exactly; the three-way choice is an approximation."],
@@ -1935,7 +1943,7 @@ function checks(p){const W=[],add=(lvl,t)=>W.push({lvl,t}),prod=sum(SIM.mo.prod)
   const pr=M.price*(TARIFF[M.st.region]||TOU[M.st.region]||{fx:1}).fx;
   if(M.st.region==="Vietnam"?(pr<1500||pr>5500):(M.price<0.03||M.price>0.6))add("warn",`An average price of ${ppk(M.price)} per kWh looks unusual. Check the tariff.`);
   if(EC.payback&&EC.payback>12)add("info",`A payback of ${fmt(EC.payback,1)} years is long; most customers expect under 8–10 years.`);
-  if(p.panelW<250||p.panelW>750)add("warn",`${p.panelW} W per panel looks unusual.`);
+  {const pf=panelFmt(p);if(p.panelW<pf.lo-10||p.panelW>pf.hi+10)add("warn",`${p.panelW} W doesn't match a ${panelDims(p)} panel (sold as ${pf.lo}–${pf.hi} W). Check the datasheet or pick the right size in Prices.`)}
   if(S.rooms.some(r=>!(+r.area>0)))add("warn","A room has no area.");
   if(M.hotel&&!M.extra.gN)add("warn",'Hotel with no "Guest room" rows: add them in Rooms.');
   if(p.panels&&M.metering!=="net"&&M.exportRate<0.005&&prod>0&&(prod-SIM.exp)/prod<0.6)add("warn","Less than 60% of the solar is used on site and exports earn nothing: the system is probably too big.");
@@ -2019,7 +2027,7 @@ function buildSheet(){
   // ---- price lines (match the investment used in every result) ----
   let lines=[],sub=0;
   if(pl){const f=M.plF||1,ln=(t,model,q,u,unit)=>{const amt=q*u;sub+=amt;lines.push([t,model,q?`${nf(q,q%1?1:0)} ${unit}`:"",u?exact(u):"",exact(amt)])};
-    if(p.panels){ln(L("Solar panels","Tấm pin mặt trời"),eq.panel||`${p.panelW} W`,p.panels,+pl.panel,L("pcs","tấm"));if(+pl.mount)ln(L("Mounting, DC cable & protection","Khung giá đỡ, cáp DC & bảo vệ"),"",p.panels,+pl.mount,L("sets","bộ"));
+    if(p.panels){ln(L("Solar panels","Tấm pin mặt trời"),eq.panel||`${p.panelW} W · ${panelDims(p)}`,p.panels,+pl.panel,L("pcs","tấm"));if(+pl.mount)ln(L("Mounting, DC cable & protection","Khung giá đỡ, cáp DC & bảo vệ"),"",p.panels,+pl.mount,L("sets","bộ"));
       if(+pl.inv)ln(L("Inverter capacity","Công suất biến tần"),eq.inv||`${IV.kw} kW ${IV.hybrid?"hybrid":"on-grid"}`,+(kWp/1.2).toFixed(1),+pl.inv,"kW");if(+pl.labour)ln(L("Installation & commissioning","Lắp đặt & chạy thử"),"",kWp,+pl.labour,"kWp")}
     if(p.batt)ln(L("Battery storage","Pin lưu trữ"),eq.batt||"LFP",p.batt,M.costB/f,"kWh");
     if((p.panels||p.batt)&&+pl.fixed)ln(L("Design, permits & grid paperwork","Thiết kế, giấy phép & hồ sơ đấu nối"),"",1,+pl.fixed,L("lot","gói"))}
@@ -2064,7 +2072,7 @@ function buildSheet(){
   <p style="margin:10px 0 0;font-size:12.5px"><span class="pill ${C.lvl==="High"?"good":"warn"}">${L("Confidence","Độ tin cậy")}: ${L(C.lvl,{High:"Cao",Medium:"Trung bình",Low:"Thấp"}[C.lvl])}</span> ${L(`Savings likely within ±${C.band}%.`,`Tiết kiệm dự kiến trong khoảng ±${C.band}%.`)} ${M.calib?L(M.calib.type==="monthly"?`Matched to ${M.calib.n} months of the customer's bills.`:"Matched to the customer's yearly bills.",M.calib.type==="monthly"?`Đã đối chiếu ${M.calib.n} tháng hóa đơn của khách hàng.`:"Đã đối chiếu tổng hóa đơn cả năm."):L("Based on the building description; bills will refine it.","Dựa trên mô tả công trình; hóa đơn điện sẽ giúp chính xác hơn.")}</p>
   <h2>1. ${L("Recommended system","Hệ thống đề xuất")}</h2>
   <table><tbody>
-    ${p.panels?`<tr><td>${L("Solar array","Dàn pin mặt trời")}</td><td><b>${p.panels} × ${esc(eq.panel||p.panelW+" W")}</b> = ${nf(kWp,2)} kWp${M.exN?L(`, plus the existing ${nf(exKWp,1)} kWp`,`, cộng ${nf(exKWp,1)} kWp hiện có`):""}</td></tr>`:""}
+    ${p.panels?`<tr><td>${L("Solar array","Dàn pin mặt trời")}</td><td><b>${p.panels} × ${esc(eq.panel||p.panelW+" W")}</b> (${panelDims(p)}) = ${nf(kWp,2)} kWp${M.exN?L(`, plus the existing ${nf(exKWp,1)} kWp`,`, cộng ${nf(exKWp,1)} kWp hiện có`):""}</td></tr>`:""}
     ${IV.kw?`<tr><td>${L("Inverter","Biến tần")}</td><td><b>${IV.kw} kW ${IV.hybrid?"hybrid":"on-grid"}</b>${eq.inv?" · "+esc(eq.inv):""} · ${IV.three?L("three-phase","3 pha"):L("single-phase","1 pha")}</td></tr>`:""}
     ${p.batt?`<tr><td>${L("Battery","Pin lưu trữ")}</td><td><b>${nf(p.batt,1)} kWh</b>${eq.batt?" · "+esc(eq.batt):""}${p.backup!=="none"?L(` · backup for ${p.backup==="whole"?"the whole building":"essential circuits"} during power cuts`,` · dự phòng cho ${p.backup==="whole"?"toàn bộ công trình":"các tải thiết yếu"} khi mất điện`):""}</td></tr>`:""}
     <tr><td>${L("Expected production","Sản lượng dự kiến")}</td><td><b>${nf(prod)} kWh${L("/year","/năm")}</b> · ${nf(prod/M.annual*100)}% ${L("of the building's use","nhu cầu điện")} · ${nf(prod?Math.max(0,prod-SIM.exp)/prod*100:0)}% ${L("used on site","dùng tại chỗ")}</td></tr>
@@ -2116,7 +2124,7 @@ $("addType").innerHTML=Object.entries(TYPES).map(([k,t])=>`<option value="${k}">
 const NUMS=["om","loanDown","loanRate","loanYears","roofUse","lifts","hOcc","front","pitch","stories","aspect","halls","occ","setpoint","seer","ev","panelW","incent","reserve","esc","disc","loss","deg"];
 function syncInputs(){
   NUMS.concat(["ess","hours"]).forEach(k=>$(k).value=S[k]);$("hour").value=S.hour;
-  $("pool").checked=S.pool;$("laundry").checked=S.laundry!==false;$("gridCharge").checked=S.gridCharge!==false;$("liftType").value=S.liftType||"std";["billKwh","exportCap","exPV","exB","fixB"].forEach(k=>$(k).value=S[k]);moneyInputs();$("city").value=S.cityLabel;
+  $("pool").checked=S.pool;$("laundry").checked=S.laundry!==false;$("gridCharge").checked=S.gridCharge!==false;$("liftType").value=S.liftType||"std";$("panelFmt").value=S.panelFmt||"m";["billKwh","exportCap","exPV","exB","fixB"].forEach(k=>$(k).value=S[k]);moneyInputs();$("city").value=S.cityLabel;
   if(S.coord)$("coords").value=`${S.coord.lat.toFixed(4)}, ${S.coord.lon.toFixed(4)}`;else $("coords").value="";
   CUSTF.forEach(k=>$(k).value=S[k]||"");["addAC","addACh","addEv","addOther","addACsize","addEvTime"].forEach(k=>$(k).value=S[k]??"");$("co2").value=S.co2||"";$("loanOn").checked=!!S.loanOn;S.billM.forEach((v,i)=>{const e=$("bm"+i);if(e)e.value=v||""});
   document.querySelectorAll(".seg").forEach(g=>g.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===String(S[g.dataset.key])))))}
@@ -2128,6 +2136,7 @@ $("qFront").addEventListener("input",e=>{S.front=+e.target.value;$("front").valu
 $("roofArea").addEventListener("input",e=>{const v=parseFloat(e.target.value);S.roofArea=isNaN(v)||v<=0?"":String(MET()?v/0.0929:v);schedule()});
 $("billAvg").addEventListener("input",e=>{const v=parseFloat(e.target.value);S.billAvg=isNaN(v)||v<=0?"":String(S.billUnit==="money"&&CX.fx>1?v/CX.fx:v);schedule()});
 $("detailBtn").addEventListener("click",()=>{S.detail=!S.detail;schedule()});
+$("panelFmt").addEventListener("input",e=>{S.panelFmt=e.target.value;S.panelW=PANELS[S.panelFmt].def;$("panelW").value=S.panelW;S.manual=false;schedule()});
 const CUSTF=["custName","custPhone","custEmail","custAddr","custNotes"];
 $("billMGrid").innerHTML=MON.map((mn,i)=>`<label>${mn}<input type="number" id="bm${i}" min="0" step="10" aria-label="${mn} kWh"></label>`).join("");
 let pend=null;const schedule=()=>{cancelAnimationFrame(pend);pend=requestAnimationFrame(fullUpdate)};
